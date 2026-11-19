@@ -1,11 +1,14 @@
 // @ts-check
 /**
  * Pure news processing for the pipeline: club tagging, de-duplication and output shaping.
- * Player tagging (with name-collision handling) arrives in Phase 4.
+ * Player tagging (with name-collision handling) is in players.mjs and runs after de-duplication, so the
+ * unioned club tags give surnames their club context.
  */
+import { makePlayerTagger } from "./players.mjs";
 
 /** @typedef {import("./feed-parser.mjs").FeedItem} FeedItem */
-/** @typedef {{ slug: string, aliases: string[] }} TaggableClub */
+/** @typedef {{ slug: string, name: string, shortName: string, aliases: string[] }} TaggableClub */
+/** @typedef {import("./players.mjs").SquadPlayer} SquadPlayer */
 /**
  * @typedef {FeedItem & { clubs: string[], players: string[], also: { outlet: string, link: string }[] }} NewsItem
  */
@@ -110,10 +113,11 @@ export function dedupe(items, { threshold = 0.75 } = {}) {
  * Tag, de-duplicate, drop stale items, sort newest first and cap the list.
  * @param {{ items: FeedItem[], club: string | null }[]} batches  one batch per feed; `club` is the feed's own club
  * @param {TaggableClub[]} clubs
- * @param {{ now?: Date, maxAgeDays?: number, limit?: number }} [opts]
+ * @param {{ now?: Date, maxAgeDays?: number, limit?: number, players?: SquadPlayer[] }} [opts]
+ *   `players`: every squad's players (from the ESPN rosters); none means no player tags
  * @returns {NewsItem[]}
  */
-export function buildNews(batches, clubs, { now = new Date(), maxAgeDays = 14, limit = 800 } = {}) {
+export function buildNews(batches, clubs, { now = new Date(), maxAgeDays = 14, limit = 800, players = [] } = {}) {
   const tag = makeClubTagger(clubs);
   const cutoff = now.getTime() - maxAgeDays * DAY;
   const tagged = batches.flatMap(({ items, club }) =>
@@ -124,7 +128,9 @@ export function buildNews(batches, clubs, { now = new Date(), maxAgeDays = 14, l
         return { ...i, clubs: club && !found.includes(club) ? [club, ...found] : found };
       }),
   );
+  const tagPlayers = players.length ? makePlayerTagger(players, clubs) : () => /** @type {string[]} */ ([]);
   return dedupe(tagged)
+    .map((i) => ({ ...i, players: tagPlayers(i) }))
     .sort((a, b) => (b.date ? Date.parse(b.date) : 0) - (a.date ? Date.parse(a.date) : 0))
     .slice(0, limit);
 }

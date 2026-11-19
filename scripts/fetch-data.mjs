@@ -14,16 +14,21 @@ import { dirname, join } from "node:path";
 import { CLUBS, LEAGUE_FEEDS, OUTLETS } from "../src/config/clubs.js";
 import { parseFeed } from "./lib/feed-parser.mjs";
 import { buildNews } from "./lib/news.mjs";
+import { rosterPlayers } from "./lib/players.mjs";
 
 const OUT_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "data");
 const TIMEOUT_MS = 15_000;
 const CONCURRENCY = 6;
 const USER_AGENT = "premier-league-hub/1.0 (unofficial fan site; news pipeline)";
+const FEED_ACCEPT = "application/rss+xml, application/atom+xml, application/xml;q=0.9";
+// Squads for player tagging: the roster endpoint, never bare /teams/:id (rule 1).
+const rosterUrl = (/** @type {string} */ espnId) =>
+  `https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams/${espnId}/roster`;
 
-/** @param {string} url */
-async function fetchText(url) {
+/** @param {string} url @param {string} [accept] */
+async function fetchText(url, accept = FEED_ACCEPT) {
   const res = await fetch(url, {
-    headers: { "user-agent": USER_AGENT, accept: "application/rss+xml, application/atom+xml, application/xml;q=0.9" },
+    headers: { "user-agent": USER_AGENT, accept },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status });
@@ -68,6 +73,22 @@ async function main() {
     CONCURRENCY,
   );
 
+  // A failed roster never fails the build: that club's players just go untagged.
+  const rosters = await pool(
+    CLUBS.map((c) => async () => {
+      try {
+        const { text } = await fetchText(rosterUrl(c.espnId), "application/json");
+        const players = rosterPlayers(JSON.parse(text), c.slug);
+        return { club: c.slug, ok: players.length > 0, players, error: players.length ? null : "No players" };
+      } catch (err) {
+        const e = /** @type {any} */ (err);
+        const error = e?.name === "TimeoutError" ? `Timed out after ${TIMEOUT_MS / 1000}s` : String(e?.message ?? e);
+        return { club: c.slug, ok: false, players: [], error };
+      }
+    }),
+    CONCURRENCY,
+  );
+
   const okCount = results.filter((r) => r.ok).length;
   if (okCount === 0) {
     console.error("Every feed failed; refusing to write empty news data.");
@@ -79,7 +100,7 @@ async function main() {
   const items = buildNews(
     results.map((r) => ({ items: r.items, club: r.feed.club })),
     CLUBS,
-    { now },
+    { now, players: rosters.flatMap((r) => r.players) },
   );
   const generatedAt = now.toISOString();
 
@@ -96,7 +117,11 @@ async function main() {
       feedsOk: okCount,
       rawItems: results.reduce((n, r) => n + r.items.length, 0),
       items: items.length,
+      rostersOk: rosters.filter((r) => r.ok).length,
+      players: rosters.reduce((n, r) => n + r.players.length, 0),
+      itemsWithPlayers: items.filter((i) => i.players.length).length,
     },
+    rosters: rosters.map((r) => ({ club: r.club, ok: r.ok, players: r.players.length, error: r.error })),
     feeds: results.map((r) => ({
       club: r.feed.club,
       outlet: r.feed.outlet,
@@ -114,6 +139,11 @@ async function main() {
   await writeFile(join(OUT_DIR, "meta.json"), JSON.stringify(meta, null, 2));
 
   console.log(`news.json: ${items.length} stories from ${okCount}/${results.length} feeds in ${meta.durationMs} ms`);
+  console.log(
+    `players: ${meta.counts.players} from ${meta.counts.rostersOk}/${CLUBS.length} rosters; ` +
+      `${meta.counts.itemsWithPlayers} stories name a player`,
+  );
+  for (const r of rosters.filter((x) => !x.ok)) console.log(`  roster failed: ${r.club} (${r.error})`);
   for (const r of results.filter((x) => !x.ok))
     console.log(`  failed: ${r.feed.outlet} ${r.feed.club ?? "league"} (${r.error})`);
 }
