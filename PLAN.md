@@ -84,7 +84,8 @@ GitLab CI `pages` job (push + schedule): node scripts/fetch-data.mjs
 
 Sky started returning 403 to this machine (every Sky URL, homepage included) after a bulk scan of feed ids
 11600–11719, so the scan tripped a rate limit. The Sky feeds stay in `clubs.js`; `meta.json` shows whether they work
-from GitLab's runners. Never scan feed ids in bulk again. The pipeline fetches 57 feeds, 6 at a time, with a 15 s
+from GitLab's runners. Never scan feed ids in bulk again. (Update, Phase 4: the block lifted; Sky answered 57/57
+feeds from this machine on 2026-11-19.) The pipeline fetches 57 feeds, 6 at a time, with a 15 s
 timeout and an identifying user agent.
 
 Phase 1 decisions:
@@ -242,8 +243,66 @@ Phase 5 needs:
 
 ### Phase 5: polish
 
-- [ ] README with Playwright screenshots + architecture decisions; Open Graph image and tags; performance pass
-- [ ] Final review against the prompt checklist; open-issues list for later versions
+- [x] README with Playwright screenshots + architecture decisions; Open Graph image and tags; performance pass
+- [x] Final review against the prompt checklist; open-issues list for later versions
+
+Phase 5 decisions:
+
+- **Screenshots and the OG image** come from `npm run screenshots` (`scripts/screenshots.mjs` runs
+  `tests/e2e/screenshots.spec.js` with `SHOTS=1`; otherwise the spec skips, so `npm run e2e` is unchanged). Recorded
+  fixtures, clock pinned, crests fetched live. Output: `docs/screenshots/*.png` and `public/og.png` (1200×630, the
+  site name in Barlow Condensed and a strip of the 20 clubs' colours; no league logo or wordmark).
+- **OG tags** in `index.html` use absolute URLs, which must follow `BASE`. Hash routes are invisible to crawlers, so
+  every shared link shows the home card; per-route cards would need prerendered pages.
+- **Performance pass:** crests were ESPN's 500 px PNGs (~36 KB each) drawn at 16–64 px. `src/lib/crest.js` asks
+  ESPN's image combiner for the drawn size (1x `src`, 2x `srcset`): about 4 KB for a 48 px crest, so the home page's
+  ~20 unique crests go from ~700 KB to under 100 KB. Main chunk 73 KB gzip (unchanged); fonts already load only the
+  Latin subsets (unicode-range); routes already lazy. Inline SVG favicon added (no extra request).
+- **Fixes found by the screenshots:** the global unlayered `:focus-visible` rule beat Tailwind's layered
+  `outline-none`, so `<main>` (focused by the router on load) showed an accent frame round the whole page; now
+  `main[tabindex="-1"]:focus { outline: none }`. The transfer feed listed Sky's "Transfer Centre LIVE! … Vote here!";
+  live blogs and votes are now left out (test added).
+
+#### Final review against the build prompt (2026-11-19)
+
+| Prompt item                                                                 | Status                                                                                               |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Home: table with zones and GD, fixtures in viewer's timezone, stories, pick | Done. **Form is on club pages only** (ESPN standings carry none; see Prompt corrections)             |
+| Club pages for all 20: next match + countdown, last result, position, form  | Done                                                                                                 |
+| Club news with credibility; squad with availability; fixtures and results   | Done                                                                                                 |
+| Match centre: line-ups, formation pitch, events, team stats                 | Done                                                                                                 |
+| My club in `localStorage`, home leads with it, AA accent                    | Done (accent contrast tested for all 20 clubs)                                                       |
+| Search across clubs, players and stories                                    | Done                                                                                                 |
+| Footer disclaimer; no league logo or wordmark                               | Done                                                                                                 |
+| React 18, Vite, Tailwind v4, lucide; JSDoc + `@ts-check`; hash routing      | Done (no type-check step runs, see open issues)                                                      |
+| Reuse Arsenal Hub modules and tests; one club config                        | Done; enforced by `no-club-names.test.js`                                                            |
+| Rules 1–6                                                                   | Done: no `/teams/:id`, no relays, rule-3 notes, lazy routes (73 KB), ESLint + Prettier, MIT + README |
+| Pipeline: Node 22, no deps, `news.json` + `meta.json`                       | Done                                                                                                 |
+| GitLab Pages, `BASE` constant, CI stages, `pages` job, no Playwright in CI  | Done                                                                                                 |
+| CI budget < 300 min with arithmetic in README; schedule in America/Toronto  | Done (every 4 h)                                                                                     |
+| Unit tests: club config, parsers, pipeline parsing and tagging, routing     | Done (431 tests)                                                                                     |
+| Playwright with recorded fixtures, Chromium; axe; 44 px; focus; skip link   | Done at 1280 px and 375 px. **Tablet (768 px) is not covered by e2e**                                |
+| Loading, empty, stale, error states with source and time                    | Done (one `Section` component)                                                                       |
+
+#### Open issues for later versions
+
+1. **Home table form column.** Needs 20 club schedules in the browser (40 requests). Better: have the pipeline write
+   `data/form.json` from the schedules it could fetch alongside the rosters.
+2. **Gameweek labels.** The default scoreboard has no `week`; fixtures are grouped by date.
+3. **Tablet layout** (768–1024 px) has no e2e or axe run; add a third Playwright project.
+4. **Dark theme** (light only in v1).
+5. **Per-route link previews** (club and match OG cards) need prerendered HTML per route, which hash routing can't
+   give; would mean moving to path routing with a Pages 404 fallback.
+6. **Player-tagging misses:** brothers in one story (Pierce/Shea Charles); a two-word name opening a sentence tags its
+   second word.
+7. **Transfer feed** still lets some round-ups through as "Reported" (for example "Ipswich latest: What are the club
+   targeting in January?"). A club-page transfer list (`transferFeed(stories, { club })`) was not added.
+8. **Type checking:** files carry `// @ts-check` but nothing runs `tsc --noEmit`; adding it would surface loose JSDoc
+   in the ported modules.
+9. **Dependencies:** `npm audit` advisories in Vitest 3's dev-only deps; upgrade Vitest and Vite together.
+10. **Sky feeds** rate-limit bulk requests; if they start failing from GitLab's runners, `meta.json` will show it and
+    BBC + Guardian still cover all 20 clubs.
+11. **Out of v1 scope:** club history, women's teams, fan predictions, a full transfer tracker, accounts.
 
 ## Decisions
 
