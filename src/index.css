@@ -1,1 +1,77 @@
 @import "tailwindcss";
+
+/*
+ * Visual direction: matchday programme meets stadium signage. Chalk-white pitch-side surface, deep
+ * turf ink, Barlow for reading and Barlow Condensed for scores, times and table numbers. The one
+ * loud element is the kit stripe and the big condensed scoreline; everything else stays quiet.
+ * The club accent (--accent, from lib/accent.js) is set on the app root and always passes AA.
+ */
+@theme {
+  --color-chalk: #fafbf8;
+  --color-ink: #14201b;
+  --color-muted: #4f5c55;
+  --color-line: #d5ddd8;
+  --color-field: #eef2ef;
+  --color-turf: #1f5135;
+  --color-win: #17663a;
+  --color-loss: #b3261e;
+  --color-draw: #5b6660;
+  --color-warn: #8a4b00;
+  --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Barlow", ui-sans-serif, system-ui, sans-serif;
+}
+
+@theme inline {
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-kit-1: var(--kit-1);
+  --color-kit-2: var(--kit-2);
+}
+
+:root {
+  --accent: #1f5135;
+  --accent-ink: #ffffff;
+  --accent-soft: #e9eeea;
+  --kit-1: #1f5135;
+  --kit-2: #14201b;
+  color-scheme: light;
+}
+
+html {
+  background: var(--color-chalk);
+  color: var(--color-ink);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  background: var(--color-chalk);
+}
+
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* The kit stripe: two club colours side by side. Decoration only; it never carries information. */
+.kit-stripe {
+  background: linear-gradient(90deg, var(--kit-1) 0 60%, var(--kit-2) 60% 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

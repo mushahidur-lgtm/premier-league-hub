@@ -204,3 +204,32 @@ describe("match details", () => {
     expect(out.lineups[0].starters).toHaveLength(1);
   });
 });
+
+describe("parseSummary match header", () => {
+  it("reads teams, score and status from the header like a schedule event", () => {
+    const team = (id, name) => ({ id, displayName: name, shortDisplayName: name, abbreviation: name.slice(0, 3) });
+    const out = parseSummary({
+      header: {
+        id: "77",
+        league: { slug: "eng.1" },
+        competitions: [
+          {
+            date: "2026-11-08T15:00Z",
+            status: { type: { state: "post", completed: true, shortDetail: "FT" } },
+            competitors: [
+              { homeAway: "home", score: "2", team: team("1", "Home FC") },
+              { homeAway: "away", score: "1", team: team("2", "Away FC") },
+            ],
+          },
+        ],
+      },
+    });
+    expect(out.match.id).toBe("77");
+    expect(out.match.competition).toBe("Premier League");
+    expect([out.match.home.name, out.match.home.score, out.match.away.score]).toEqual(["Home FC", 2, 1]);
+    expect(out.match.state).toBe("post");
+  });
+  it("is null without a header", () => {
+    expect(parseSummary({}).match).toBeNull();
+  });
+});

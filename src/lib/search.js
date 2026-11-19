@@ -1,7 +1,8 @@
 // @ts-check
 /**
  * Search across clubs, players and news stories. Matching ignores accents and case, and every word of
- * the query must appear (so "watkins injury" finds stories naming both).
+ * the query must start a word in the text (so "watkins injury" finds stories naming both, and "rice" doesn't
+ * match "Price").
  */
 import { fold, storyHaystack } from "./news.js";
 
@@ -19,8 +20,10 @@ export function queryWords(q) {
   return n.length < 2 ? [] : n.split(" ");
 }
 
+/** Each word must start a word in `hay` ("rice" finds "Rice", not "Price"). @param {string} hay @param {string} w */
+const hasWord = (hay, w) => ` ${hay}`.includes(` ${w}`);
 /** @param {string} hay @param {string[]} words */
-const hasAll = (hay, words) => words.every((w) => hay.includes(w));
+const hasAll = (hay, words) => words.every((w) => hasWord(hay, w));
 
 /**
  * @param {string} q
@@ -40,7 +43,7 @@ export function search(q, { clubs = [], players = [], stories = [] }, { limit = 
   const playerHits = players
     .filter(({ player, clubSlug }) => {
       const name = norm(player.name);
-      if (!words.some((w) => name.includes(w))) return false;
+      if (!words.some((w) => hasWord(name, w))) return false;
       return hasAll(`${name} ${clubText.get(clubSlug) ?? ""}`, words);
     })
     .slice(0, limit);

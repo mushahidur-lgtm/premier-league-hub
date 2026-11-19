@@ -335,7 +335,17 @@ export function parseSummary(json) {
         },
       ];
     });
+  // Teams, score and kick-off for the match centre header, read like any schedule event.
+  const match = isObj(header)
+    ? parseEvent({
+        id: json.header?.id ?? header.id,
+        date: header.date,
+        league: json.header?.league,
+        competitions: [header],
+      })
+    : null;
   return {
+    match,
     status: header?.status?.type,
     clock: header?.status?.displayClock,
     stats,

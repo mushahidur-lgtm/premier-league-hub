@@ -83,6 +83,15 @@ describe("search", () => {
     expect(search(`watkins ${b.shortName}`, { clubs, players }).players.map((p) => p.player.id)).toEqual(["p2"]);
     expect(search(`watkins ${a.shortName}`, { clubs, players }).players).toEqual([]);
   });
+  it("matches at the start of words only", () => {
+    const pool = {
+      players: [{ player: { id: "p3", name: "Declan Rice" }, clubSlug: a.slug }],
+      stories: [story("Lauren Price wins", "2026-11-18")],
+    };
+    expect(search("rice", pool).players).toHaveLength(1);
+    expect(search("rice", pool).stories).toHaveLength(0);
+    expect(search("ri", pool).players).toHaveLength(1);
+  });
   it("needs every word in a story, newest first", () => {
     expect(search("watkins", { stories }).stories.map((s) => s.articles[0].title)).toEqual([
       "Watkins scores twice",
