@@ -160,7 +160,9 @@ Phase 3 needs (from the Phase 2 review):
 - [x] Visual direction with `frontend-design`; checks with `web-design-guidelines` and `vercel-react-best-practices`
 - [x] League home, club pages, match centre, club picker + theming, search, lazy routes
 - [x] Playwright (Chromium) with recorded fixtures; axe clean; 375 px + desktop; main chunk < ~150 KB gzip; deploy
-      (16 e2e tests, desktop + 375 px, axe WCAG 2.1 AA clean, no horizontal overflow; main chunk 72 KB gzip)
+      (16 e2e tests, desktop + 375 px, axe WCAG 2.1 AA clean, no horizontal overflow; main chunk 72 KB gzip;
+      deployed by pipeline 3091150004, `test` 45 s + `pages` 29 s; live check: lazy chunks, fonts and data/*.json
+      return 200, news not stale, a club route survives a refresh)
 
 Phase 3 decisions:
 
