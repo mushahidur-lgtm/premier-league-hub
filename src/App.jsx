@@ -134,7 +134,7 @@ export default function App() {
   const first = useRef(true);
   const routeKey = window.location.hash;
   useEffect(() => {
-    document.title = titleFor(route, { clubName: pageClub?.name });
+    if (route.name !== "match") document.title = titleFor(route, { clubName: pageClub?.name });
     if (first.current) {
       first.current = false;
       return;

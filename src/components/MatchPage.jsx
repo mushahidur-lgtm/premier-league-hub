@@ -162,7 +162,8 @@ export default function MatchPage({ eventId }) {
   const summary = useSource(`summary:${eventId}`);
   const match = summary.data?.match ?? null;
   const name = match ? `${match.home.short} v ${match.away.short}` : null;
-  useTitle(name ? titleFor({ name: "match", eventId }, { matchName: name }) : null);
+  // The match page owns its title (App skips this route), so a cached summary on a second visit keeps it.
+  useTitle(titleFor({ name: "match", eventId }, { matchName: name }));
 
   return (
     <div className="space-y-10">

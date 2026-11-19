@@ -49,6 +49,13 @@ test("match centre: score, events, stats and line-ups", async ({ page }) => {
   await expect(page.getByRole("img", { name: /line-up on the pitch/ })).toHaveCount(2);
   await noOverflow(page);
   await axeClean(page);
+  // Second visit: chunk loaded and summary cached, so the page renders at once; the title must still be the match.
+  const title = await page.title();
+  await page.goto("./#/");
+  await expect(page).toHaveTitle(/table, fixtures and news/);
+  await page.goto(`./#/match/${RECORDED.eventId}`);
+  await expect(page.getByRole("heading", { name: "Key events" })).toBeVisible();
+  await expect(page).toHaveTitle(title);
 });
 
 test("search finds players and keeps the query in the address", async ({ page }) => {
