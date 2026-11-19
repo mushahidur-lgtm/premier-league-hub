@@ -121,3 +121,10 @@ GitLab CI `pages` job (push + schedule): node scripts/fetch-data.mjs
   Phase 0 at the user's request). GitLab (`origin`) stays the main remote and the only host; push to both.
 - `npm audit` reports advisories in Vitest 3's dev-only dependencies (`@vitest/mocker`, `tinypool`); the fix is Vitest
   5 (breaking). They don't ship to the site. Revisit after the Phase 2 port by upgrading Vitest and Vite together.
+- GitLab Pages on gitlab.com needed three fixes before the first deploy worked:
+  1. New accounts must complete identity verification before any CI job runs.
+  2. `pages_access_level` defaulted to `private` (visitors were redirected to a login); set to `enabled`.
+  3. "Unique domain" was on, which serves the site at the root and breaks `BASE = "/premier-league-hub/"`; turned off, so
+     the site is at https://mushahidur.gitlab.io/premier-league-hub/.
+     First deploy: pipeline 3090889659, `test` 34 s + `pages` 36 s (about 1.2 CI minutes). Use this to size the Phase 1 schedule.
+- A minimal `.gitlab-ci.yml` (test + pages, no data fetch, no schedule) was added ahead of Phase 1 at the user's request.
