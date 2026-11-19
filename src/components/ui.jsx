@@ -1,6 +1,7 @@
 import { Component, useEffect, useMemo, useState } from "react";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import { clubByEspnId } from "../config/clubs.js";
+import { sizedCrest } from "../lib/crest.js";
 import { fmtFull, timeAgo } from "../lib/format.js";
 import { isChunkError } from "../lib/lazy.js";
 import { buildStories } from "../lib/news.js";
@@ -84,7 +85,8 @@ export function Crest({ src, espnId, size = 24, label = "" }) {
   if (!url) return <span style={{ width: size, height: size }} className="inline-block shrink-0" />;
   return (
     <img
-      src={url}
+      src={sizedCrest(url, size)}
+      srcSet={`${sizedCrest(url, size, 2)} 2x`}
       alt={label}
       width={size}
       height={size}
