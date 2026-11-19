@@ -157,9 +157,39 @@ Phase 3 needs (from the Phase 2 review):
 
 ### Phase 3: pages and design
 
-- [ ] Visual direction with `frontend-design`; checks with `web-design-guidelines` and `vercel-react-best-practices`
-- [ ] League home, club pages, match centre, club picker + theming, search, lazy routes
-- [ ] Playwright (Chromium) with recorded fixtures; axe clean; 375 px + desktop; main chunk < ~150 KB gzip; deploy
+- [x] Visual direction with `frontend-design`; checks with `web-design-guidelines` and `vercel-react-best-practices`
+- [x] League home, club pages, match centre, club picker + theming, search, lazy routes
+- [x] Playwright (Chromium) with recorded fixtures; axe clean; 375 px + desktop; main chunk < ~150 KB gzip; deploy
+      (16 e2e tests, desktop + 375 px, axe WCAG 2.1 AA clean, no horizontal overflow; main chunk 72 KB gzip)
+
+Phase 3 decisions:
+
+- **Visual direction:** matchday programme meets stadium signage. Chalk surface (`#FAFBF8`), turf ink (`#14201B`),
+  self-hosted Barlow for text and Barlow Condensed for scores, times and table numbers (tabular figures). The one loud
+  element is the scoreboard strip with a kit stripe in the club's raw colours; the rest stays quiet and left-aligned.
+  Sentence case throughout (the guidelines' "Title Case" rule was not applied, on purpose). Light theme only in v1.
+- **Accent colours:** `lib/accent.js` darkens a club's primary colour towards the ink colour until it reaches 4.5:1 on
+  the page _and_ on its own pale tint; tested for all 20 clubs. Raw club colours are decoration only (kit stripe,
+  crest-grid bar). Club pages take their own club's colours; elsewhere the viewer's club (or the site default).
+- **One `Section` component** renders every data section's loading, empty, stale and error (with Try again) states
+  and the "Source · updated …" line, which shows `asOf` (the pipeline run for news).
+- **Form** comes from each club's schedule (`lib/form.js`), so it is on club pages only; the home table has no form
+  column (see Prompt corrections). The home fixtures list is ESPN's default scoreboard, labelled by date, never with
+  an invented gameweek number.
+- **Player search** loads all 20 rosters, but only on the search route (saved copies first); matching is by word start
+  (`rice` finds Rice, not Price).
+- **Match centre** reads teams and score from the summary header (`parseSummary` now returns `match`). Stat values
+  are formatted in the component, because cached copies lose the parser's `fmt` functions.
+- **Squad** shows ESPN's injured/doubtful/suspended entries and says "ESPN lists no injuries or suspensions. Its list
+  can lag club news." when there are none; never "all fit". The news cross-check (rule 3) is Phase 4.
+- **E2E** (`npm run e2e`, local only): `tests/e2e/mock.js` answers every request from `tests/e2e/fixtures` (bodies
+  only, checked for IPs and tokens) and pins the clock to the recording time. Re-record with `npm run e2e:record`.
+  Fixtures are in `.prettierignore` so they stay minified (1.2 MB).
+
+Phase 4 needs:
+
+- Player tagging can reuse `useAllPlayers` in `SearchPage.jsx` (20 rosters) or, better, do it in the pipeline.
+- The squad list is where the rule 3 "reported injured · outlet · time" note goes.
 
 ### Phase 4: news intelligence
 
@@ -211,5 +241,9 @@ Phase 3 needs (from the Phase 2 review):
 - Phase 2: the Phase 1 pipeline parser (`scripts/lib/feed-parser.mjs`) had dropped Arsenal Hub's rule that a zone-less
   `YYYY-MM-DD HH:mm:ss` date is UTC, so such dates depended on the runner's timezone. Restored; the ported timezone
   test now covers the pipeline parser.
+- Phase 3: ESPN's standings carry no form, and the scoreboard rejects date ranges (`?dates=YYYYMMDD-YYYYMMDD` returned
+  HTTP 400 on 2026-11-19), so league-wide form would need 20 club schedules (40 requests) on the home page. Dropped
+  the form column from the home table; form is shown on club pages from that club's schedule.
+- Phase 3: the default scoreboard has no `week` field, so home fixtures are grouped by date, not by gameweek.
 - Phase 2: Testing Library can't register its automatic cleanup because Vitest runs without `globals`, so mounted
   hooks leaked between tests. `tests/unit/setup.js` now calls `cleanup()` after each test.

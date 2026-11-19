@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { CLUBS } from "../config/clubs.js";
 import { useSource } from "../lib/data.js";
 import { pickNextMatch } from "../lib/hero.js";
@@ -42,7 +43,7 @@ export default function Home({ myClub }) {
   const scoreboard = useSource("scoreboard");
   const news = useSource("news");
   const stories = useStories(news.data);
-  const top = pickBriefing(stories, Date.now(), 8);
+  const top = useMemo(() => pickBriefing(stories, Date.now(), 8), [stories]);
 
   return (
     <div className="space-y-10">

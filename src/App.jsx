@@ -33,7 +33,7 @@ function ClubPicker() {
       <select
         value={slug ?? ""}
         onChange={(e) => setSlug(e.target.value || null)}
-        className="min-h-11 max-w-40 rounded-md border border-line bg-white px-2 font-semibold"
+        className="min-h-11 max-w-40 rounded-md border border-line bg-white px-2 font-semibold text-ink"
       >
         <option value="">Pick your club</option>
         {CLUBS.map((c) => (

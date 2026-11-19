@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { CLUBS, clubBySlug } from "../config/clubs.js";
 import { loadSource, readCache, useSource } from "../lib/data.js";
@@ -46,7 +46,9 @@ export default function SearchPage({ query }) {
   const news = useSource("news");
   const stories = useStories(news.data);
   const { players, loaded, failed } = useAllPlayers();
-  const results = useMemo(() => search(q, { clubs: CLUBS, players, stories }), [q, players, stories]);
+  // Typing stays responsive: the search over ~700 players and the stories runs on the deferred value.
+  const deferred = useDeferredValue(q);
+  const results = useMemo(() => search(deferred, { clubs: CLUBS, players, stories }), [deferred, players, stories]);
   const searched = results.words.length > 0;
   const total = results.clubs.length + results.players.length + results.stories.length;
 
@@ -73,7 +75,7 @@ export default function SearchPage({ query }) {
             autoComplete="off"
             spellCheck="false"
             className="min-h-11 w-full bg-transparent text-lg outline-none"
-            placeholder="e.g. a player’s surname"
+            placeholder="Surname, club or topic…"
           />
         </div>
         <p className="mt-1 text-sm text-muted">
@@ -87,8 +89,8 @@ export default function SearchPage({ query }) {
       <p role="status" className="font-semibold">
         {searched
           ? total
-            ? `${total} result${total === 1 ? "" : "s"} for “${q.trim()}”`
-            : `No results for “${q.trim()}”. Try a surname or a club name.`
+            ? `${total} result${total === 1 ? "" : "s"} for “${deferred.trim()}”`
+            : `No results for “${deferred.trim()}”. Try a surname or a club name.`
           : "Type at least two letters."}
       </p>
 

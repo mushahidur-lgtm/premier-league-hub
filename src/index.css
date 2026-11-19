@@ -42,6 +42,13 @@ html {
   background: var(--color-chalk);
   color: var(--color-ink);
   -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
 
 body {
