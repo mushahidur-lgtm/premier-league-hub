@@ -6,7 +6,7 @@
  */
 
 /**
- * Parse a location hash such as "#/club/arsenal" into a route.
+ * Parse a location hash such as "#/club/<slug>" into a route.
  * Hash routing keeps every route refreshable on GitLab Pages.
  * @param {string} hash
  * @returns {Route}
