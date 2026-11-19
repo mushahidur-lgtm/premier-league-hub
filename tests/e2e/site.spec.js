@@ -23,6 +23,9 @@ test("home: table, fixtures, stories and club grid", async ({ page }) => {
   await expect(page.locator("section[aria-labelledby=fixtures-heading] li").first()).toBeVisible();
   await expect(page.locator("section[aria-labelledby=news-heading] li").first()).toBeVisible();
   await expect(page.getByText(/Source: ESPN, Premier League table/)).toBeVisible();
+  const transfers = page.locator("section[aria-labelledby=transfers-heading] li");
+  await expect(transfers.first()).toBeVisible();
+  await expect(transfers.first()).toContainText(/Confirmed|Reported/);
   await expect(page.locator("section[aria-labelledby=clubs-heading] li")).toHaveCount(20);
   await noOverflow(page);
   await axeClean(page);
@@ -37,6 +40,11 @@ test("club page: matches, position, form, news and squad", async ({ page }) => {
   await expect(page.locator("section[aria-labelledby=squad-heading] li").first()).toBeVisible();
   await expect(page.getByText(/Its list can lag club news/)).toBeVisible();
   await expect(page.getByText(/all fit/i)).toHaveCount(0);
+  // Rule 3: the fixture's injury story names a player ESPN lists as fine, so the squad shows the
+  // report on that player and the summary line says so.
+  const squad = page.locator("section[aria-labelledby=squad-heading]");
+  await expect(squad.getByRole("link", { name: /Reported injured · BBC Sport · 2h ago/ })).toBeVisible();
+  await expect(squad.getByText(/Recent news reports a player ESPN doesn’t list as injured or doubtful/)).toBeVisible();
   await noOverflow(page);
   await axeClean(page);
 });

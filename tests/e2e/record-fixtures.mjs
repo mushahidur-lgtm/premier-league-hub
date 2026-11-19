@@ -36,6 +36,21 @@ const summary = Object.fromEntries(
 const news = await get(`${SITE}/news.json`);
 const meta = await get(`${SITE}/meta.json`);
 news.items = news.items.slice(0, 120); // keeps the fixture small; enough for every section
+// One made-up injury story about a squad player ESPN lists as fine, so the e2e tests always exercise
+// the "reported injured" note (rule 3) whatever the real news was on the day.
+const fine = roster.athletes.find((a) => Array.isArray(a.injuries) && !a.injuries.length && a.lastName);
+news.items.unshift({
+  id: "e2e-injury",
+  title: `${fine.lastName} ruled out of weekend game with hamstring injury`,
+  link: "https://www.bbc.co.uk/sport/football/e2e-injury-fixture",
+  date: new Date(Date.parse(recordedAt) - 2 * 3600e3).toISOString(),
+  excerpt: "Fixture story for the end-to-end tests.",
+  author: "",
+  outlet: "bbc",
+  clubs: [club.slug],
+  players: [String(fine.id)],
+  also: [],
+});
 
 await Promise.all([
   save("standings.json", standings),

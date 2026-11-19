@@ -271,8 +271,9 @@ export function enrichArticle(raw, ctx = {}) {
   a.titleConcepts = conceptsOf(a.title);
   a.tokens = new Set(contentTokens(a.title).filter((t) => !GENERIC.has(t)));
   a.entities = headlineEntities(a.title);
-  // Map surnames / full names of known squad players to a stable key
-  a.players = new Set();
+  // Player ids: the pipeline's tags (scripts/lib/players.mjs, with collision handling), plus any
+  // squad passed in ctx (full name or a squad-unique surname in the headline).
+  a.players = new Set(arr(raw.players).filter((p) => typeof p === "string"));
   const t = fold(a.title);
   for (const p of ctx.players ?? []) {
     if ((p.fullKey && t.includes(p.fullKey)) || (p.lastKey && new RegExp(`\\b${p.lastKey}\\b`).test(t)))

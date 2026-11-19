@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { Star } from "lucide-react";
 import { useSource } from "../lib/data.js";
-import { AVAILABILITY, summarizeAvailability } from "../lib/availability.js";
+import { AVAILABILITY, isReportedAbsent, summarizeAvailability } from "../lib/availability.js";
 import { recentForm } from "../lib/form.js";
-import { ordinal } from "../lib/format.js";
+import { ordinal, timeAgo } from "../lib/format.js";
+import { injuryReports, isAbsenceReport } from "../lib/injuries.js";
 import { pickNextMatch } from "../lib/hero.js";
 import { forClub, relevance } from "../lib/news.js";
 import { tableGaps } from "../lib/standings.js";
@@ -56,12 +57,41 @@ function Standing({ club, standings, schedule }) {
   );
 }
 
+/** "Reported injured · BBC Sport · 3h ago", linked to the story, with its headline. */
+function ReportNote({ report, now }) {
+  const tone = isAbsenceReport(report) ? "text-warn" : "text-muted";
+  return (
+    <a
+      href={report.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-0.5 block text-sm underline-offset-2 hover:underline"
+    >
+      <span className={`font-semibold ${tone}`}>{report.label}</span>
+      <span className="text-muted">
+        {" "}
+        · {report.source} · <time dateTime={report.date.toISOString()}>{timeAgo(report.date, now)}</time>
+      </span>
+      <span className="block text-muted italic">“{report.title}”</span>
+      <span className="sr-only"> (opens {report.source} in a new tab)</span>
+    </a>
+  );
+}
+
 function Squad({ club }) {
   const roster = useSource(`roster:${club.espnId}`);
+  // News only adds notes: the squad renders whether or not news has loaded.
+  const news = useSource("news");
+  const stories = useStories(news.data);
+  const players = roster.data?.players;
+  const now = Date.now();
+  const reports = useMemo(() => (players ? injuryReports(stories, players) : new Map()), [stories, players]);
   return (
     <Section id="squad-heading" title="Squad" state={roster} empty="ESPN hasn’t published this squad yet.">
       {(data) => {
         const { counts, absent } = summarizeAvailability(data.players);
+        // Players recent news reports as injured or doubtful whom ESPN doesn't list.
+        const newsOnly = data.players.filter((p) => isAbsenceReport(reports.get(p.id)) && !isReportedAbsent(p));
         const groups = ["Goalkeepers", "Defenders", "Midfielders", "Forwards", "Other"]
           .map((g) => [g, data.players.filter((p) => p.group === g)])
           .filter(([, list]) => list.length);
@@ -83,6 +113,12 @@ function Squad({ club }) {
               ) : (
                 "ESPN lists no injuries or suspensions."
               )}{" "}
+              {newsOnly.length > 0 && (
+                <>
+                  Recent news reports {newsOnly.length === 1 ? "a player" : `${newsOnly.length} players`} ESPN doesn’t
+                  list as injured or doubtful: {newsOnly.map((p) => p.name).join(", ")}.{" "}
+                </>
+              )}
               <span className="text-muted">Its list can lag club news.</span>
             </p>
             <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
@@ -93,12 +129,14 @@ function Squad({ club }) {
                     {list.map((p) => {
                       const a = p.availability;
                       const flagged = a && a.key !== "clear" && a.key !== "unknown";
+                      const report = reports.get(p.id);
                       return (
                         <li key={p.id} className="flex items-baseline gap-3 py-1.5">
                           <span className="num w-7 shrink-0 text-right text-lg text-muted">{p.jersey}</span>
                           <span className="min-w-0 flex-1">
                             <span className="font-semibold">{p.name}</span>
                             {p.position && <span className="text-sm text-muted"> · {p.position}</span>}
+                            {report && <ReportNote report={report} now={now} />}
                           </span>
                           {flagged && (
                             <span className="shrink-0 text-sm font-semibold text-warn" title={a.source}>
