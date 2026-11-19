@@ -1,0 +1,41 @@
+image: node:22-alpine
+
+stages:
+  - test
+  - deploy
+
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - node_modules/
+
+# Lint and unit tests on merge requests and the default branch.
+# Playwright is deliberately not run in CI (compute-minute budget); run it locally.
+test:
+  stage: test
+  script:
+    - npm ci --no-audit --no-fund
+    - npm run lint
+    - npm run format:check
+    - npm test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# GitLab Pages requires the job to be named `pages` and to publish ./public.
+# Phase 1 adds `node scripts/fetch-data.mjs` before the build.
+pages:
+  stage: deploy
+  script:
+    - npm ci --no-audit --no-fund
+    - npm run build
+    - rm -rf public
+    - mv dist public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule"
