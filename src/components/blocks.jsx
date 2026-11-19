@@ -320,6 +320,49 @@ export function StoryList({ stories, now = Date.now() }) {
   );
 }
 
+const STATUS_STYLE = {
+  confirmed: { label: "Confirmed", className: "bg-ink text-white" },
+  reported: { label: "Reported", className: "border border-line text-ink" },
+};
+
+/** Transfer feed rows (lib/transfers.js): status, headline, outlet and tier, time. */
+export function TransferList({ items, now = Date.now() }) {
+  return (
+    <ul className="divide-y divide-line">
+      {items.map(({ story: s, status, kind }) => {
+        const tier = TIERS[s.tier];
+        const st = STATUS_STYLE[status];
+        return (
+          <li key={s.id} className="flex items-start gap-3 py-3">
+            <span
+              className={`mt-0.5 w-20 shrink-0 rounded-sm px-1.5 py-0.5 text-center text-xs font-semibold tracking-wide uppercase ${st.className}`}
+            >
+              {st.label}
+            </span>
+            <span className="min-w-0 flex-1">
+              <a
+                href={s.lead.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="leading-snug font-semibold underline-offset-2 hover:underline"
+              >
+                {s.lead.title}
+                <span className="sr-only"> (opens {s.lead.source} in a new tab)</span>
+              </a>
+              <span className="mt-0.5 flex flex-wrap gap-x-3 text-sm text-muted">
+                <span>{kind}</span>
+                <span className="font-semibold text-ink">{s.lead.source}</span>
+                {tier && <span title={tier.label}>{tier.short} outlet</span>}
+                {s.date && <time dateTime={s.date.toISOString()}>{timeAgo(s.date, now)}</time>}
+              </span>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 /** Crest grid of every club: the "pick your club" entry point. */
 export function ClubGrid({ clubs }) {
   return (

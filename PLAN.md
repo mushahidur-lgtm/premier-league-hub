@@ -195,10 +195,35 @@ Phase 4 needs:
 
 ### Phase 4: news intelligence
 
-- [ ] Player tagging across 20 squads with collision handling (full name, then surname + club context; never bare
-      surname across clubs)
-- [ ] Injury cross-check (rule 3); simplified league-wide transfer feed (confirmed vs reported, outlet tier)
-- [ ] Tricky-headline tests; no false "all fit" in fixtures; deploy
+- [x] Player tagging across 20 squads with collision handling (full name, then surname + club context; never bare
+      surname across clubs). First local run: 603 players from 20/20 rosters, 169 of 413 stories name a player
+- [x] Injury cross-check (rule 3); simplified league-wide transfer feed (confirmed vs reported, outlet tier)
+- [x] Tricky-headline tests; no false "all fit" in fixtures; deploy (425 unit tests, 16 e2e; main chunk 73 KB gzip)
+
+Phase 4 decisions:
+
+- **Player tagging runs in the pipeline** (`scripts/lib/players.mjs`), after de-duplication so the unioned club tags
+  give surnames their context. `fetch-data.mjs` fetches the 20 `/eng.1/teams/<id>/roster` responses (never bare
+  `/teams/<id>`); a failed roster leaves that club untagged and is listed under `rosters` in `meta.json`. Items carry
+  ESPN player ids in `players`; the browser seeds `article.players` from them.
+- **Collision rules:** a full name tags anywhere (unless two squads share it); a surname or one-word name needs the
+  story to be tagged with that player's club, must be unique in that squad and not shared by another tagged club. Case
+  is kept and accents folded. Full names are matched first and blanked out. A surname next to another capitalised
+  word ("Lewis Jones", "Old Trafford", "James Savundra") is skipped unless that word is a possessive, a club word, all
+  capitals or a sentence-start capital. Known misses: brothers in one story ("Pierce" and "Shea" Charles).
+- **Injury cross-check** (`src/lib/injuries.js`): a report needs the pipeline's tag, the player named in the headline,
+  a reliable-or-better outlet and a date within 7 days. Wording is stricter than the news "injury" concept
+  (injury-time, "no doubt", "absence" and past-injury stories don't count). With several players named, the wording
+  goes to the nearest name within four words, plus names listed with it ("X and Y miss training"), so "Burn replaces
+  injured Guehi" flags only Guehi. Returns ("returns to training", "fully fit", "on return from") are their own kind,
+  and the latest report per player wins. The squad shows "Reported injured · outlet · time" with the linked headline,
+  and the summary line names players the news reports but ESPN doesn't list.
+- **Transfer feed** (`src/lib/transfers.js`) is a home-page section, not a route. It includes contract renewals
+  (labelled "Contract"), and leaves out manager appointments/sackings, finances, fan pieces and newsletters. With no
+  official outlets, "Confirmed" means completion wording from a reliable outlet with no hedge; any hedge (set to,
+  talks, verbally agrees, a question mark) makes it "Reported", and so does an agreement before an announcement.
+- **E2E fixture:** `record-fixtures.mjs` adds one made-up BBC injury story about a squad player ESPN lists as fine, so
+  the rule-3 note is always tested.
 
 ### Phase 5: polish
 

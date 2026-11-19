@@ -4,7 +4,8 @@ import { useSource } from "../lib/data.js";
 import { pickNextMatch } from "../lib/hero.js";
 import { pickBriefing } from "../lib/news.js";
 import { toHash } from "../lib/route.js";
-import { ClubGrid, LeagueTable, MatchesByDay, MatchStrip, StoryList } from "./blocks.jsx";
+import { transferFeed } from "../lib/transfers.js";
+import { ClubGrid, LeagueTable, MatchesByDay, MatchStrip, StoryList, TransferList } from "./blocks.jsx";
 import { Section, useStories } from "./ui.jsx";
 
 /** The viewer's club leads the home page: its live, next or last match. */
@@ -44,6 +45,7 @@ export default function Home({ myClub }) {
   const news = useSource("news");
   const stories = useStories(news.data);
   const top = useMemo(() => pickBriefing(stories, Date.now(), 8), [stories]);
+  const transfers = useMemo(() => transferFeed(stories, { limit: 8 }), [stories]);
 
   return (
     <div className="space-y-10">
@@ -81,6 +83,24 @@ export default function Home({ myClub }) {
             <p className="rounded-md bg-field px-3 py-6 text-muted">No stories in the last week.</p>
           )
         }
+      </Section>
+
+      <Section id="transfers-heading" title="Transfers and contracts" state={news}>
+        {() => (
+          <>
+            <p className="mb-2 text-sm text-muted">
+              Confirmed: the outlet reports the move or contract as done. Reported: talks, interest or a deal not yet
+              announced.
+            </p>
+            {transfers.length ? (
+              <TransferList items={transfers} />
+            ) : (
+              <p className="rounded-md bg-field px-3 py-6 text-muted">
+                No transfer or contract stories in the last two weeks.
+              </p>
+            )}
+          </>
+        )}
       </Section>
 
       <section aria-labelledby="clubs-heading">
