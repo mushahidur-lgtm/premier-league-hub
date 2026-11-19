@@ -49,10 +49,17 @@ export function upgradeImage(url) {
   return url.replace(/(ichef\.bbci\.co\.uk\/(?:ace\/(?:standard|ws)|news))\/\d{2,4}\//, "$1/800/");
 }
 
-/** @param {string} [s] */
+/**
+ * Feed date → ISO string, or null. RFC 822 and ISO 8601 dates carry a zone; a zone-less
+ * "YYYY-MM-DD HH:mm[:ss]" is read as UTC, so the result never depends on the runner's timezone.
+ * @param {string} [s]
+ */
 export function parseDate(s) {
   if (!s) return null;
-  const d = new Date(String(s).trim());
+  const str = String(s).trim();
+  const d = new Date(
+    /^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}(:[0-9]{2})?$/.test(str) ? str.replace(" ", "T") + "Z" : str,
+  );
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
