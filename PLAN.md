@@ -245,6 +245,9 @@ Phase 5 needs:
 
 - [x] README with Playwright screenshots + architecture decisions; Open Graph image and tags; performance pass
 - [x] Final review against the prompt checklist; open-issues list for later versions
+      (deployed by pipeline 3091327199, `test` 62 s + `pages` 43 s; live check: `og.png` 200 `image/png`, OG and
+      Twitter tags in the served `index.html`, every home crest served through the combiner with none broken, no
+      error sections, news not stale; live `meta.json` 57/57 feeds, 20/20 rosters, 170 of 416 stories tagged)
 
 Phase 5 decisions:
 
