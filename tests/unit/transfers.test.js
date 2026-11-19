@@ -66,6 +66,7 @@ describe("transferFeed", () => {
         ["Le Fée’s penalty stuns Chelsea and breathes life into defiant Sunderland", ["3"]],
         ["Crystal Palace sack Pierre Sage and in advanced talks to appoint Thomas Frank"],
         ["Hometown glory? Norwegian library unveils £100k history book donated by Haaland"],
+        ["Transfer Centre LIVE! Time for Man Utd to sell Fernandes? Vote here!", ["4"]],
       ]),
     );
     expect(feed).toEqual([]);

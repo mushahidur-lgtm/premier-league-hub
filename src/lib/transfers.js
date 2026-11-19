@@ -19,14 +19,14 @@ const DONE =
 
 // The news categoriser's "transfer" concept is broad (it catches "move up to second", "offer" and any
 // £ figure), so the feed also needs a player-move word in the headline, and either a tagged player or
-// a word that only a transfer story uses. Manager appointments and sackings, club finances, fan pieces
-// and newsletters are left out.
+// a word that only a transfer story uses. Manager appointments and sackings, club finances, fan pieces,
+// newsletters, live blogs and fan votes are left out.
 const MOVE_WORDS =
   /\b(sign(s|ed|ing)?|transfers?|bid|(?<!le )fee|loan\w*|swap|target(s|ed|ing)?|joins?|joined|deal|contract|renew\w*|extension|exit|departure|depart\w*|talks|linked|interest|wants?|monitor\w*|pursu\w*|move (to|for)|(summer|january|loan|permanent|transfer|dream|shock) move)\b|[£€]\s?\d/;
 const TRANSFER_ONLY =
   /\b(transfers?|window|january|exit|departure|leaves|bid|(?<!le )fee|loan\w*|monitor\w*|target(s|ed|ing)?|linked with|interest in|move for|swap)\b|[£€]\s?\d/;
 const NOT_A_TRANSFER =
-  /\b(financial results|revenue|accounts|sack(s|ed|ing)?|appoint\w*|head coach|manager|boss|job|board|legal|fans?|library|ratings|football daily|newsletter|podcast|quiz)\b/;
+  /\b(financial results|revenue|accounts|sack(s|ed|ing)?|appoint\w*|head coach|manager|boss|job|board|legal|fans?|library|ratings|football daily|newsletter|podcast|quiz|vote|transfer centre|live blog)\b|\blive!/;
 
 /** @typedef {"confirmed" | "reported"} TransferStatus */
 
