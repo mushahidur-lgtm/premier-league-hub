@@ -262,6 +262,9 @@ Phase 5 decisions:
   `outline-none`, so `<main>` (focused by the router on load) showed an accent frame round the whole page; now
   `main[tabindex="-1"]:focus { outline: none }`. The transfer feed listed Sky's "Transfer Centre LIVE! … Vote here!";
   live blogs and votes are now left out (test added).
+- **CI re-measured** (Phase 4 need): push `test` 57 s + `pages` 39 s (pipeline 3091233441); the first natural
+  scheduled run, 16:00 Toronto, `pages` 31 s (pipeline 3091321718, started ~5 min late). Still within the 1 min per
+  scheduled run budgeted in the README; every 4 hours stays.
 
 #### Final review against the build prompt (2026-11-19)
 
@@ -281,7 +284,7 @@ Phase 5 decisions:
 | GitLab Pages, `BASE` constant, CI stages, `pages` job, no Playwright in CI  | Done                                                                                                 |
 | CI budget < 300 min with arithmetic in README; schedule in America/Toronto  | Done (every 4 h)                                                                                     |
 | Unit tests: club config, parsers, pipeline parsing and tagging, routing     | Done (431 tests)                                                                                     |
-| Playwright with recorded fixtures, Chromium; axe; 44 px; focus; skip link   | Done at 1280 px and 375 px. **Tablet (768 px) is not covered by e2e**                                |
+| Playwright with recorded fixtures, Chromium; axe; 44 px; focus; skip link   | Done at 1280, 768 (added in Phase 5) and 375 px                                                      |
 | Loading, empty, stale, error states with source and time                    | Done (one `Section` component)                                                                       |
 
 #### Open issues for later versions
@@ -289,20 +292,19 @@ Phase 5 decisions:
 1. **Home table form column.** Needs 20 club schedules in the browser (40 requests). Better: have the pipeline write
    `data/form.json` from the schedules it could fetch alongside the rosters.
 2. **Gameweek labels.** The default scoreboard has no `week`; fixtures are grouped by date.
-3. **Tablet layout** (768–1024 px) has no e2e or axe run; add a third Playwright project.
-4. **Dark theme** (light only in v1).
-5. **Per-route link previews** (club and match OG cards) need prerendered HTML per route, which hash routing can't
+3. **Dark theme** (light only in v1).
+4. **Per-route link previews** (club and match OG cards) need prerendered HTML per route, which hash routing can't
    give; would mean moving to path routing with a Pages 404 fallback.
-6. **Player-tagging misses:** brothers in one story (Pierce/Shea Charles); a two-word name opening a sentence tags its
+5. **Player-tagging misses:** brothers in one story (Pierce/Shea Charles); a two-word name opening a sentence tags its
    second word.
-7. **Transfer feed** still lets some round-ups through as "Reported" (for example "Ipswich latest: What are the club
+6. **Transfer feed** still lets some round-ups through as "Reported" (for example "Ipswich latest: What are the club
    targeting in January?"). A club-page transfer list (`transferFeed(stories, { club })`) was not added.
-8. **Type checking:** files carry `// @ts-check` but nothing runs `tsc --noEmit`; adding it would surface loose JSDoc
+7. **Type checking:** files carry `// @ts-check` but nothing runs `tsc --noEmit`; adding it would surface loose JSDoc
    in the ported modules.
-9. **Dependencies:** `npm audit` advisories in Vitest 3's dev-only deps; upgrade Vitest and Vite together.
-10. **Sky feeds** rate-limit bulk requests; if they start failing from GitLab's runners, `meta.json` will show it and
-    BBC + Guardian still cover all 20 clubs.
-11. **Out of v1 scope:** club history, women's teams, fan predictions, a full transfer tracker, accounts.
+8. **Dependencies:** `npm audit` advisories in Vitest 3's dev-only deps; upgrade Vitest and Vite together.
+9. **Sky feeds** rate-limit bulk requests; if they start failing from GitLab's runners, `meta.json` will show it and
+   BBC + Guardian still cover all 20 clubs.
+10. **Out of v1 scope:** club history, women's teams, fan predictions, a full transfer tracker, accounts.
 
 ## Decisions
 

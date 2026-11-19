@@ -41,7 +41,7 @@ live from ESPN's CDN. The injury story in the squad shot is the made-up fixture 
 | `npm test`                    | Vitest unit tests                                                        |
 | `npm run lint`                | ESLint (including React hooks rules)                                     |
 | `npm run format:check`        | Prettier check (`npm run format` to fix)                                 |
-| `npm run e2e`                 | Playwright (Chromium, desktop + 375 px, axe), local only                 |
+| `npm run e2e`                 | Playwright (Chromium; 1280, 768 and 375 px; axe), local only             |
 | `npm run e2e:record`          | Re-record the e2e fixtures from the live APIs                            |
 | `npm run screenshots`         | Retake `docs/screenshots/*.png` and the Open Graph image `public/og.png` |
 | `node scripts/fetch-data.mjs` | Fetch news feeds and squads into `public/data/`                          |
@@ -78,7 +78,7 @@ Measured on 2026-11-19 (Phase 5, after the Phase 4 squad fetches were added):
 | Pipeline                       | Jobs           | Measured                          | Budgeted as |
 | ------------------------------ | -------------- | --------------------------------- | ----------- |
 | Push to `main`                 | `test`+`pages` | 57 s + 39 s (pipeline 3091233441) | 2 min       |
-| Scheduled refresh (pages only) | `pages`        | SCHEDULED_MEASURE                 | 1 min       |
+| Scheduled refresh (pages only) | `pages`        | 31 s (pipeline 3091321718)        | 1 min       |
 
 The budget rounds up generously for cache misses, slow runners and feeds that hit the 15 s timeout.
 
@@ -90,8 +90,8 @@ The budget rounds up generously for cache misses, slow runners and feeds that hi
 | Every 6 hours     | 4 × 30.4 = 122             | 122               | 178                      | ~89                |
 
 **Choice: every 4 hours** (cron `0 */4 * * *`, America/Toronto: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00). It keeps
-news under four hours old and leaves room for about 58 pushes a month. GitLab bills by the minute, rounded up per job,
-so a sub-minute job costs one minute: 183 scheduled minutes plus, say, 30 pushes × 2 = 60, is about 243 a month.
+news under four hours old and leaves room for about 58 pushes a month. Every job is budgeted at a full minute or more, so
+the real use is lower: 183 budgeted scheduled minutes plus, say, 30 pushes × 2 = 60 is about 243 a month.
 
 ## Architecture decisions
 
@@ -121,7 +121,7 @@ so a sub-minute job costs one minute: 183 scheduled minutes plus, say, 30 pushes
 - **Crests** come from ESPN's CDN resized by its image combiner (`src/lib/crest.js`): about 4 KB per crest instead of
   a 36 KB, 500 px original. No Premier League logo or wordmark anywhere.
 - **E2E tests are local only**, against the production build, with every request answered from recorded fixtures
-  and the clock pinned to the recording time; axe (WCAG 2.1 AA) on every main route at 1280 px and 375 px.
+  and the clock pinned to the recording time; axe (WCAG 2.1 AA) on every main route at 1280, 768 and 375 px.
 - **Generated data is never committed**, and neither are scratch files, HTTP dumps or anything with IPs or tokens.
 
 The full decision log, including corrections to the original brief, is in [PLAN.md](PLAN.md).
