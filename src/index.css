@@ -69,6 +69,12 @@ body {
   border-radius: 2px;
 }
 
+/* The router and skip link focus <main> (tabindex -1) so screen readers start at the content. It is
+   not a control, so no ring: this unlayered rule otherwise beats Tailwind's layered outline-none. */
+main[tabindex="-1"]:focus {
+  outline: none;
+}
+
 /* The kit stripe: two club colours side by side. Decoration only; it never carries information. */
 .kit-stripe {
   background: linear-gradient(90deg, var(--kit-1) 0 60%, var(--kit-2) 60% 100%);
