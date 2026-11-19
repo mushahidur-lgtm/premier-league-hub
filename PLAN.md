@@ -103,8 +103,47 @@ Phase 1 decisions:
 
 ### Phase 2: shared code
 
-- [ ] Port team-agnostic `lib/` modules + tests from Arsenal Hub, parameterised by club
-- [ ] Nothing in `src/` mentions Arsenal except `clubs.js`; ported tests pass
+- [x] Port team-agnostic `lib/` modules + tests from Arsenal Hub, parameterised by club
+- [x] Nothing in `src/` mentions Arsenal except `clubs.js`; ported tests pass (enforced for every club by
+      `tests/unit/no-club-names.test.js`; 328 unit tests; main chunk 47 KB gzip, nothing imports `lib/` yet)
+
+#### Phase 2 port map
+
+| Arsenal Hub module                                                        | Here                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| errors, cache, validate, format, pitch, refresh, lazy, hero, availability | As is                                                                                                                                                                                                                          |
+| diagnostics                                                               | Proxy/circuit/fallback counters removed; console helper is `plhDiagnostics()`                                                                                                                                                  |
+| storage                                                                   | Guarded helpers + `usePersistentState` kept; `plh-` keys; new `useMyClub` (validated slug). Bookmarks, watchlist, predictions, recents, archive dropped                                                                        |
+| parsers                                                                   | `parseEvent(e, teamId)` / `parseSchedules(jsons, teamId)`: `ars` → `team`; no team id = league-wide (team/opp/isHome/result null). `parseTeam` removed (rule 1). Friendlies detected generically                               |
+| standings                                                                 | `tableGaps(rows, espnId)` for any club, plus `safety`/`inDrop` (relegation line, full 20-club table only)                                                                                                                      |
+| net                                                                       | No CORS proxies (rule 2), so no circuit breaker or proxy-first; dedupe, 30 s memo, 502–504 retry, 429 backoff kept. Overall budget 8 s                                                                                         |
+| sources                                                                   | `TIERS`, `outletForUrl` over `clubs.js` OUTLETS; league-wide reporters only. No rss2json, TEAM_ID or Arsenal feed list                                                                                                         |
+| news                                                                      | Reads pipeline items (`parseNewsFile`); categories, credibility and story grouping kept; `scope` → `clubs`; filters/ranking take a club slug. Club words built from `clubs.js`                                                 |
+| data                                                                      | Rewritten: per-club URL builders, keyed loaders (`schedule:<id>`, `roster:<id>`, `standings`, `scoreboard`, `summary:<id>`, `news`), keyed last-good-copy cache, generic `useSource(key)` hook, `refreshAll`, `useAutoRefresh` |
+| feeds, history, playerstats, transfers, route                             | Not ported: feeds are parsed by the pipeline; history and player stats are out of v1; transfers is Phase 4; `route.js` here already covers v1                                                                                  |
+
+Phase 2 decisions:
+
+- **`useSource(key)` replaces `useHubData`.** One hook per data section, so each section has its own loading, empty,
+  stale and error state plus `source` and `savedAt`. Requests for the same key are shared across components; a
+  forced reload (`refreshAll`) wins over an older, slower response; a failed refresh keeps the last good copy, marked
+  stale. Cache checks and max ages are looked up by key kind, so every club's schedule is sanitised.
+- **Story grouping stays in the browser.** The pipeline only folds near-identical copies (`also`); grouping by event
+  across outlets needs the categories. Stories tagged with disjoint clubs never merge.
+- **ESPN scoreboard** (`eng.1/scoreboard`, for the home page gameweek) checked 2026-11-19: `Access-Control-Allow-Origin: *`.
+- **`// @ts-check`** heads every `src/lib` file, but there is no type-check step; ported modules are only loosely
+  typed (JSDoc on new and changed exports).
+
+Tests dropped in the port, and why:
+
+- Proxy fallback, proxy-first, circuit breaker, `skipDirect`/`proxy:false`, the shared 5 s proxy budget and the
+  fallback log (`net.test.js`, `fetching.test.js`): the proxies are gone.
+- RSS/rss2json/ESPN-news parsing (`news.test.js`, `validation.test.js`): feeds are parsed by the pipeline, whose
+  parser has its own tests in `pipeline.test.js`. `fetchFeed`/`arsenalNews` loader tests: replaced by `data.test.js`.
+- arsenal.com-as-official and `isArsenalRelevant`: no club site feeds; the pipeline tags clubs.
+- `fanTalk`, bookmarks, followed players, transfer watchlist, predictions, recents, news archive: features not in v1.
+- `parseTeam`, player statistics, club history, women's team separation, transfer stepper: modules not ported.
+- The `useHubData` hook tests: rewritten against `loadSource`/`useSource` in `data.test.js` (same behaviours).
 
 ### Phase 3: pages and design
 
@@ -159,3 +198,8 @@ Phase 1 decisions:
      the site is at https://mushahidur.gitlab.io/premier-league-hub/.
      First deploy: pipeline 3090889659, `test` 34 s + `pages` 36 s (about 1.2 CI minutes). Use this to size the Phase 1 schedule.
 - A minimal `.gitlab-ci.yml` (test + pages, no data fetch, no schedule) was added ahead of Phase 1 at the user's request.
+- Phase 2: the Phase 1 pipeline parser (`scripts/lib/feed-parser.mjs`) had dropped Arsenal Hub's rule that a zone-less
+  `YYYY-MM-DD HH:mm:ss` date is UTC, so such dates depended on the runner's timezone. Restored; the ported timezone
+  test now covers the pipeline parser.
+- Phase 2: Testing Library can't register its automatic cleanup because Vitest runs without `globals`, so mounted
+  hooks leaked between tests. `tests/unit/setup.js` now calls `cleanup()` after each test.
