@@ -198,7 +198,9 @@ Phase 4 needs:
 - [x] Player tagging across 20 squads with collision handling (full name, then surname + club context; never bare
       surname across clubs). First local run: 603 players from 20/20 rosters, 169 of 413 stories name a player
 - [x] Injury cross-check (rule 3); simplified league-wide transfer feed (confirmed vs reported, outlet tier)
-- [x] Tricky-headline tests; no false "all fit" in fixtures; deploy (425 unit tests, 16 e2e; main chunk 73 KB gzip)
+- [x] Tricky-headline tests; no false "all fit" in fixtures; deploy (425 unit tests, 16 e2e; main chunk 73 KB gzip;
+      pipeline 3091213238, `test` 62 s + `pages` 34 s (was 29 s; the rosters add ~5 s, well inside the CI budget);
+      live `meta.json`: 20/20 rosters, 603 players, 169 of 413 stories tagged)
 
 Phase 4 decisions:
 
