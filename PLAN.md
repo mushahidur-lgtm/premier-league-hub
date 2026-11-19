@@ -212,13 +212,16 @@ Phase 4 decisions:
   story to be tagged with that player's club, must be unique in that squad and not shared by another tagged club. Case
   is kept and accents folded. Full names are matched first and blanked out. A surname next to another capitalised
   word ("Lewis Jones", "Old Trafford", "James Savundra") is skipped unless that word is a possessive, a club word, all
-  capitals or a sentence-start capital. Known misses: brothers in one story ("Pierce" and "Shea" Charles).
+  capitals or a sentence-start capital. Known misses: brothers in one story ("Pierce" and "Shea" Charles); a
+  two-word name opening a sentence still tags its second word ("Roy Keane hails Everton" would tag an Everton
+  Keane). Low impact: an injury note also needs injury wording next to the name.
 - **Injury cross-check** (`src/lib/injuries.js`): a report needs the pipeline's tag, the player named in the headline,
   a reliable-or-better outlet and a date within 7 days. Wording is stricter than the news "injury" concept
   (injury-time, "no doubt", "absence" and past-injury stories don't count). With several players named, the wording
   goes to the nearest name within four words, plus names listed with it ("X and Y miss training"), so "Burn replaces
   injured Guehi" flags only Guehi. Returns ("returns to training", "fully fit", "on return from") are their own kind,
-  and the latest report per player wins. The squad shows "Reported injured · outlet · time" with the linked headline,
+  but a fresh injury event in the same headline ("limps off on return from injury", "setback") wins over a return;
+  the latest report per player wins. The squad shows "Reported injured · outlet · time" with the linked headline,
   and the summary line names players the news reports but ESPN doesn't list.
 - **Transfer feed** (`src/lib/transfers.js`) is a home-page section, not a route. It includes contract renewals
   (labelled "Contract"), and leaves out manager appointments/sackings, finances, fan pieces and newsletters. With no
@@ -226,6 +229,16 @@ Phase 4 decisions:
   talks, verbally agrees, a question mark) makes it "Reported", and so does an agreement before an announcement.
 - **E2E fixture:** `record-fixtures.mjs` adds one made-up BBC injury story about a squad player ESPN lists as fine, so
   the rule-3 note is always tested.
+
+Phase 5 needs:
+
+- README CI arithmetic is stale: the push `pages` job went from 29 s to 34 s with the 20 roster fetches; a scheduled
+  run will grow by about the same. Re-measure one scheduled run and update the minutes sum (still well under 300).
+- Screenshots should include the home "Transfers and contracts" section and a squad "Reported injured" note.
+- `meta.json` now has `counts.rostersOk / players / itemsWithPlayers` and a `rosters` list; document it.
+- Sky answered 57/57 feeds from this machine on 2026-11-19 (Phase 4 runs), so the Phase 1 "Sky 403s locally" note is
+  out of date.
+- Optional: a club-page transfer list (`transferFeed(stories, { club })` already supports it).
 
 ### Phase 5: polish
 

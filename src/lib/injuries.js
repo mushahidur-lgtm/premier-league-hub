@@ -26,15 +26,19 @@ export const REPORT_LABEL = /** @type {Record<ReportKind, string>} */ ({
   back: "Reported back from injury",
 });
 
-// Each pattern matches folded (lowercase, accent-free) headline text. Order matters: "back" first, so
-// "returns from injury" is a return, not an injury.
+// Each pattern matches folded (lowercase, accent-free) headline text. Order matters: a fresh injury
+// event first, so "limps off on return from injury" is an injury; then "back", so "returns from
+// injury" or "on return from broken jaw" is a return; then injury nouns; then doubts.
+const FRESH =
+  /\b(limp(s|ed)? off|stretchered|setback|re-?injur\w*|ruled out|suffer(s|ed)? (a |an )?(\w+ )?(injury|knock|blow)|picks? up (a |an )?(\w+ )?(injury|knock)|out for (the )?(season|weeks|months)|injured again)\b/;
 const BACK =
   /\b(returns? to (full )?training|back in (full )?training|back from injury|returns? from (a |his |an )?(\w+ )?(injury|knee|hamstring|ankle|thigh|calf|groin|broken|fracture)|on (his )?return from|fully fit|fit again|fit to (face|play|start)|recover(ed|s) from|injury boost|boost as \w+ returns?)\b/;
 const INJURED =
   /\b(injur(y|ed|ies)(?![- ]time)|ruled out|sidelined|surgery|operation|hamstring|knee|ankle|groin|calf|thigh|achilles|acl|broken|fractur\w*|torn|tear|rupture\w*|concussion|stretchered|limp(s|ed)? off|out for (the )?(season|weeks|months)|blow as)\b/;
 const DOUBT =
   /\b((?<!no )doubt(ful)?|fitness (call|test|concern|worry|race|battle|doubt)|race to be fit|miss(es)? training|knock|scan|precaution\w*)\b/;
-const PAST = /\b(last season|last year|career|recalls?|remember\w*|years ago)\b/;
+// A story about a past injury. Not "career": "career-threatening" is the most serious news there is.
+const PAST = /\b(last season|last year|recalls?|years ago)\b/;
 
 /**
  * Words of a folded headline with their positions, keeping "," and "&" as their own tokens so
@@ -125,6 +129,7 @@ export function readHeadline(title, players) {
   const names = namePositions(t, players);
   if (!names.found.size) return out;
   for (const [kind, re] of /** @type {[ReportKind, RegExp][]} */ ([
+    ["injured", FRESH],
     ["back", BACK],
     ["injured", INJURED],
     ["doubt", DOUBT],

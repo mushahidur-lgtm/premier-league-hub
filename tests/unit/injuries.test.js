@@ -34,6 +34,15 @@ describe("readHeadline", () => {
     });
   });
 
+  it("reads a fresh injury on a return as an injury", () => {
+    expect(read("Saka limps off on return from injury", [SAKA])).toEqual({ 7: "injured" });
+    expect(read("Saka suffers setback on return from hamstring injury", [SAKA])).toEqual({ 7: "injured" });
+  });
+
+  it("never treats a career-threatening injury as a past one", () => {
+    expect(read("Saka out for season with career-threatening knee injury", [SAKA])).toEqual({ 7: "injured" });
+  });
+
   it("reads a return as a return, even next to injury words", () => {
     expect(read("Man City latest: Guehi returns to training - with a surprise guest!", [GUEHI])).toEqual({
       1: "back",
