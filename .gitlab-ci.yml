@@ -11,7 +11,8 @@ cache:
   paths:
     - node_modules/
 
-# Lint and unit tests on merge requests and the default branch.
+# Lint and unit tests on merge requests and on pushes to the default branch (not on scheduled runs,
+# which only refresh the news data, to save CI minutes).
 # Playwright is deliberately not run in CI (compute-minute budget); run it locally.
 test:
   stage: test
@@ -22,14 +23,17 @@ test:
     - npm test
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 # GitLab Pages requires the job to be named `pages` and to publish ./public.
-# Phase 1 adds `node scripts/fetch-data.mjs` before the build.
+# fetch-data writes public/data/*.json, which Vite copies into dist/ during the build.
 pages:
   stage: deploy
   script:
     - npm ci --no-audit --no-fund
+    - node scripts/fetch-data.mjs
     - npm run build
     - rm -rf public
     - mv dist public

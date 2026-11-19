@@ -61,14 +61,42 @@ GitLab CI `pages` job (push + schedule): node scripts/fetch-data.mjs
 
 ### Phase 1: data pipeline and deploy
 
-- [ ] `src/config/clubs.js` for all 20 clubs (ESPN ids from the `eng.1` teams list; crest URL; colours)
-- [ ] Check every candidate feed URL (BBC, Guardian, Sky, league-wide); keep working ones, record results in `clubs.js`
-- [ ] `scripts/fetch-data.mjs` (no deps; RSS/Atom parser; de-dupe; club tagging; `news.json` + `meta.json`) + tests
-- [ ] `.gitlab-ci.yml` (test → deploy, `pages` job, node_modules cache on lockfile, no Playwright)
-- [ ] Placeholder page reads `data/meta.json`; first deploy (**ask first**)
+- [x] `src/config/clubs.js` for all 20 clubs (ESPN ids from the `eng.1` teams list; crest URL; colours)
+- [x] Check every candidate feed URL (BBC, Guardian, Sky, league-wide); keep working ones, record results in `clubs.js`
+- [x] `scripts/fetch-data.mjs` (no deps; RSS/Atom parser; de-dupe; club tagging; `news.json` + `meta.json`) + tests
+- [x] `.gitlab-ci.yml` (test → deploy, `pages` job, node_modules cache on lockfile, no Playwright)
+- [x] Placeholder page reads `data/meta.json`; first deploy (**ask first**)
 - [ ] Measure pipeline duration; compute schedule interval for < ~300 min/month; write the arithmetic in README
 - [ ] Create pipeline schedule, America/Toronto (**ask first**)
 - [ ] Verify Pages URL loads, routes survive refresh, `data/news.json` is served
+
+#### Phase 1 feed check (2026-11-19)
+
+| Source                              | Result                                                                                          |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------- |
+| BBC Sport team feeds                | 20/20 work. Bournemouth is `afc-bournemouth`, Brighton is `brighton-and-hove-albion`.           |
+| Guardian team feeds                 | 20/20 work. Brighton is `brightonfootball`; Villa redirects to `aston-villa`.                   |
+| Sky Sports team feeds (`/rss/<id>`) | 14/20 clubs. None for Bournemouth, Brentford, Brighton, Coventry, Hull or Nottingham Forest.    |
+| League-wide                         | BBC Premier League (51 items), Guardian Premier League (20), Sky Premier League (`/rss/11660`). |
+
+Sky started returning 403 to this machine (every Sky URL, homepage included) after a bulk scan of feed ids
+11600–11719, so the scan tripped a rate limit. The Sky feeds stay in `clubs.js`; `meta.json` shows whether they work
+from GitLab's runners. Never scan feed ids in bulk again. The pipeline fetches 57 feeds, 6 at a time, with a 15 s
+timeout and an identifying user agent.
+
+Phase 1 decisions:
+
+- **Pipeline layout:** `scripts/fetch-data.mjs` (IO only), `scripts/lib/feed-parser.mjs` (regex RSS/Atom parser ported
+  from Arsenal Hub's `feeds.js`, which needs DOMParser) and `scripts/lib/news.mjs` (club tagging, de-dupe, 14-day
+  window, 800-item cap). The pure parts are unit-tested.
+- **Failure policy:** a failed feed is recorded in `meta.json` and never fails the build. The job fails only if every
+  feed fails, so a network outage can't deploy empty news over good news.
+- **Club tagging** uses whole-word, case-sensitive aliases from `clubs.js`. A test bans ambiguous words ("City",
+  "United", "Palace", "Forest", "Bees"). A story from a club's own feed is always tagged with that club.
+- **Players:** `players: []` on every item until Phase 4 (tagging needs the 20 squads).
+- **Colours** are curated, not ESPN's (ESPN has Brighton `0606fa`, Coventry `87cced`). Abbreviations use the usual
+  MCI/MUN where ESPN says MNC/MAN, so match ESPN data by `espnId`, never by abbreviation.
+- **Scheduled runs skip the `test` job**; they only refresh data and redeploy.
 
 ### Phase 2: shared code
 
