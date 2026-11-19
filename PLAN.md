@@ -117,5 +117,7 @@ GitLab CI `pages` job (push + schedule): node scripts/fetch-data.mjs
 - Arsenal Hub's repo contains `h.txt`, which looks like an HTTP dump. Never copy it (it's git-ignored here).
 - The UI skills (frontend-design, web-design-guidelines, vercel-react-best-practices) were installed at user level
   before Phase 0, not in Phase 3.
+- A public GitHub mirror exists at https://github.com/mushahidur-lgtm/premier-league-hub (remote `github`, added after
+  Phase 0 at the user's request). GitLab (`origin`) stays the main remote and the only host; push to both.
 - `npm audit` reports advisories in Vitest 3's dev-only dependencies (`@vitest/mocker`, `tinypool`); the fix is Vitest
   5 (breaking). They don't ship to the site. Revisit after the Phase 2 port by upgrading Vitest and Vite together.

@@ -10,7 +10,9 @@ Premier League Hub: unofficial fan site for all 20 Premier League clubs. Success
   `PLAN.md` as you go; stop, commit and summarise (what was done, what the next phase needs).
 - Usage-limited plan: read only the files the phase needs; don't re-read the whole repo; don't run expensive things the
   phase doesn't need.
-- Small, meaningful commits. Push at the end of each phase.
+- Small, meaningful commits. Push at the end of each phase to **both** remotes: `git push origin main` (GitLab, the
+  main remote and the only one that deploys) and `git push github main` (GitHub mirror, no CI or hosting).
+  `glab` is at `%LOCALAPPDATA%\Programs\glab\glab.exe`; `gh` is on PATH.
 - **Ask first** before: creating the GitLab project, the first push, creating the pipeline schedule.
 - If the plan or prompt is wrong (endpoint without CORS, dead feed, GitLab works differently), don't work around it
   silently: note it under "Prompt corrections" in `PLAN.md`, pick the simplest fix within the rules, and say so in the
