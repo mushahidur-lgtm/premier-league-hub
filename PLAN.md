@@ -56,8 +56,8 @@ GitLab CI `pages` job (push + schedule): node scripts/fetch-data.mjs
 - [x] Scaffold Vite + React 18 + Tailwind v4 + ESLint + Prettier + Vitest; MIT LICENSE; `.gitignore`
 - [x] `npm run lint && npm test && npm run build` pass locally
 - [x] Local git repo with initial commits
-- [ ] Install `glab` and sign in (**user**), then confirm project creation
-- [ ] `glab repo create premier-league-hub --public`, add remote, push (no deploy)
+- [x] Install `glab` and sign in (done via `glab auth login --device`)
+- [x] `glab repo create premier-league-hub --public`, add remote, push (no deploy). Repo: https://gitlab.com/mushahidur/premier-league-hub; Pages URL will be https://mushahidur.gitlab.io/premier-league-hub/
 
 ### Phase 1: data pipeline and deploy
 
@@ -108,8 +108,9 @@ GitLab CI `pages` job (push + schedule): node scripts/fetch-data.mjs
 
 ## Prompt corrections and notes
 
-- `glab` was not installed at Phase 0. Install with `winget install GLab.GLab`, then `glab auth login` (gitlab.com,
-  HTTPS).
+- `glab` was not installed at Phase 0. Installed with `winget install GLab.GLab`. The browser sign-in did not persist;
+  `glab auth login --hostname gitlab.com --device` worked. glab lives at
+  `%LOCALAPPDATA%\Programs\glab\glab.exe`, which is not on PATH in shells opened before the install.
 - Arsenal Hub's file names differ slightly from the prompt: ESPN parsing is in `parsers.js` (feed parsing in
   `feeds.js`), and the fetch layer is split across `data.js` and `net.js`. It also has `route.js`, `storage.js`,
   `availability.js`, `refresh.js` and `lazy.js`, worth reviewing in Phase 2.
