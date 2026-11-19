@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
   LOADERS,
+  SOURCES,
   URLS,
   dataUrl,
   isEmptyData,
@@ -294,6 +295,44 @@ describe("useSource", () => {
     await waitFor(() => expect(a.result.current.status).toBe("empty"));
     await waitFor(() => expect(b.result.current.status).toBe("empty"));
     expect(f).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useSource: news freshness follows the pipeline run, not the fetch", () => {
+  const newsFile = (hoursOld) => ({
+    generatedAt: new Date(Date.now() - hoursOld * 3600e3).toISOString(),
+    items: [{ id: "1", title: "T", link: "https://www.bbc.co.uk/1", outlet: "bbc", clubs: [] }],
+  });
+  const serve = (file) =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (u) => ok(String(u).endsWith("news.json") ? file : { feeds: [] })),
+    );
+
+  it("a news file from a recent run is fresh, and asOf is its generatedAt", async () => {
+    serve(newsFile(1));
+    const { result } = renderHook(() => useSource("news"));
+    await waitFor(() => expect(result.current.status).toBe("ok"));
+    expect(result.current.stale).toBe(false);
+    expect(result.current.asOf.getTime()).toBeLessThan(result.current.savedAt.getTime() - 3000e3);
+  });
+  it("a just-fetched news file from a run 24 h ago is stale (the schedule has stopped)", async () => {
+    serve(newsFile(24));
+    const { result } = renderHook(() => useSource("news"));
+    await waitFor(() => expect(result.current.status).toBe("ok"));
+    expect(result.current.stale).toBe(true);
+  });
+  it("other sources use the fetch time as asOf", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ok({ athletes: [] })),
+    );
+    const { result } = renderHook(() => useSource("roster:1"));
+    await waitFor(() => expect(result.current.status).toBe("empty"));
+    expect(result.current.asOf).toBe(result.current.savedAt);
+  });
+  it("the news source names every configured outlet", () => {
+    expect(SOURCES.news.name).toBe("BBC Sport, The Guardian, Sky Sports");
   });
 });
 

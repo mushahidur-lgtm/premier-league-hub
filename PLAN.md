@@ -145,6 +145,16 @@ Tests dropped in the port, and why:
 - `parseTeam`, player statistics, club history, women's team separation, transfer stepper: modules not ported.
 - The `useHubData` hook tests: rewritten against `loadSource`/`useSource` in `data.test.js` (same behaviours).
 
+Phase 3 needs (from the Phase 2 review):
+
+- Show `asOf`, not `savedAt`: for news it is the pipeline run (`generatedAt`), and news older than 10 h is `stale`
+  even straight after a fetch (`STALE_AFTER_MS` in `data.js`).
+- `useMyClub` keeps its own state per component, so a club picked in the picker won't re-theme the shell until reload.
+  Back it with a shared store (the `refresh.js` `useSyncExternalStore` pattern) before the picker and theming land.
+- `readCache()` parses the whole cache blob (up to 2 MB) on every `useSource` mount, and `writeCache` re-parses it on
+  every load. Keep one parsed copy in module scope, updated on write, before a club page mounts 4+ sources.
+- `npm audit` (see notes below): upgrade Vitest and Vite together, in a session of its own.
+
 ### Phase 3: pages and design
 
 - [ ] Visual direction with `frontend-design`; checks with `web-design-guidelines` and `vercel-react-best-practices`

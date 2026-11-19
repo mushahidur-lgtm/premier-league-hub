@@ -24,6 +24,7 @@ import { parseNewsFile } from "./news.js";
 import { persistentStats } from "./diagnostics.js";
 import { readJSON } from "./storage.js";
 import { isObj } from "./validate.js";
+import { OUTLETS } from "./sources.js";
 import { bumpRefreshEpoch, useRefreshEpoch } from "./refresh.js";
 
 export { FetchError, clearMemo, fetchJSON };
@@ -52,10 +53,33 @@ export const SOURCES = {
   scoreboard: { name: "ESPN", detail: "Premier League scoreboard" },
   summary: { name: "ESPN", detail: "match summary" },
   news: {
-    name: "BBC Sport, The Guardian and Sky Sports",
+    name: Object.values(OUTLETS)
+      .map((o) => o.name)
+      .join(", "),
     detail: "news feeds, collected by this site's data pipeline",
   },
 };
+
+/**
+ * Data older than this (by `asOf`) is shown as stale even straight after a successful fetch. Matters for
+ * news: the pipeline runs every 4 hours, so a news.json older than ~2 missed runs means it has stopped.
+ * @type {Record<string, number>}
+ */
+export const STALE_AFTER_MS = { news: 10 * 3600e3 };
+
+/**
+ * When the data itself was produced: the pipeline's `generatedAt` for news, otherwise the fetch time.
+ * @param {string} key
+ * @param {any} data
+ * @param {Date | null} savedAt
+ * @returns {Date | null}
+ */
+export function asOfOf(key, data, savedAt) {
+  if (kindOf(key) === "news" && data?.generatedAt instanceof Date && !Number.isNaN(data.generatedAt.getTime())) {
+    return data.generatedAt;
+  }
+  return savedAt;
+}
 
 /** "schedule:<espnId>" → "schedule". @param {string} key */
 export const kindOf = (key) => key.split(":")[0];
@@ -315,7 +339,7 @@ export function resetSourceState() {
  * @typedef {"loading" | "ok" | "empty" | "refreshing" | "error" | "idle"} SourceStatus
  * @typedef {{
  *   status: SourceStatus, data: any, error: string | null, warnings: string[], savedAt: Date | null,
- *   stale: boolean, empty: boolean, source: { name: string, detail: string } | null, reload: () => Promise<boolean>
+ *   asOf: Date | null, stale: boolean, empty: boolean, source: { name: string, detail: string } | null, reload: () => Promise<boolean>
  * }} SourceState
  */
 
@@ -351,8 +375,10 @@ function initial(key) {
  *
  *   status    loading (nothing to show yet) · refreshing (showing older data, fetching) · ok · empty ·
  *             error (see `error`; `data` may still hold the last good copy) · idle (no key)
- *   stale     true when `data` is a saved copy or a refresh failed, so the UI can say so
+ *   stale     true when `data` is a saved copy, a refresh failed, or `asOf` is older than
+ *             STALE_AFTER_MS for this kind, so the UI can say so
  *   savedAt   when `data` was fetched; `source` names where it came from
+ *   asOf      when the data was produced (news: the pipeline run; otherwise = savedAt). Show this one.
  *
  * @param {string | null} key
  * @param {{ isEmpty?: (data: any) => boolean }} [opts]
@@ -409,13 +435,17 @@ export function useSource(key, { isEmpty = isEmptyData } = {}) {
   const reload = useCallback(() => load(true), [load]);
   const hasData = state.data != null;
   const empty = hasData && isEmpty(state.data);
+  const asOf = key ? asOfOf(key, state.data, state.savedAt) : null;
+  const limit = key ? STALE_AFTER_MS[kindOf(key)] : undefined;
+  const tooOld = limit != null && asOf != null && Date.now() - asOf.getTime() > limit;
   return {
     status: state.status === "ok" && empty ? "empty" : state.status,
     data: state.data,
     error: state.error,
     warnings: state.warnings,
     savedAt: state.savedAt,
-    stale: hasData && (!state.fresh || state.status === "error"),
+    asOf,
+    stale: hasData && (!state.fresh || state.status === "error" || tooOld),
     empty,
     source: key ? (SOURCES[/** @type {keyof typeof SOURCES} */ (kindOf(key))] ?? null) : null,
     reload,
