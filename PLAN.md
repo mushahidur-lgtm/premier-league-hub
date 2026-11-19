@@ -68,7 +68,8 @@ GitLab CI `pages` job (push + schedule): node scripts/fetch-data.mjs
 - [x] Placeholder page reads `data/meta.json`; first deploy (**ask first**)
 - [x] Measure pipeline duration; compute schedule interval for < ~300 min/month; write the arithmetic in README
       (push 53 s, scheduled 27 s; every 4 hours chosen)
-- [ ] Create pipeline schedule, America/Toronto (**ask first**)
+- [x] Create pipeline schedule, America/Toronto (**ask first**): id 4568716, `0 */4 * * *`, ref `main`. A manual run
+      (pipeline 3090966094) ran only `pages`, 26 s, 57/57 feeds, and the live `meta.json` updated.
 - [x] Verify Pages URL loads, routes survive refresh, `data/news.json` is served (57/57 feeds, 419 stories from CI;
       GitLab's runners are not blocked by Sky)
 
