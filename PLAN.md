@@ -66,9 +66,11 @@ GitLab CI `pages` job (push + schedule): node scripts/fetch-data.mjs
 - [x] `scripts/fetch-data.mjs` (no deps; RSS/Atom parser; de-dupe; club tagging; `news.json` + `meta.json`) + tests
 - [x] `.gitlab-ci.yml` (test → deploy, `pages` job, node_modules cache on lockfile, no Playwright)
 - [x] Placeholder page reads `data/meta.json`; first deploy (**ask first**)
-- [ ] Measure pipeline duration; compute schedule interval for < ~300 min/month; write the arithmetic in README
+- [x] Measure pipeline duration; compute schedule interval for < ~300 min/month; write the arithmetic in README
+      (push 53 s, scheduled 27 s; every 4 hours chosen)
 - [ ] Create pipeline schedule, America/Toronto (**ask first**)
-- [ ] Verify Pages URL loads, routes survive refresh, `data/news.json` is served
+- [x] Verify Pages URL loads, routes survive refresh, `data/news.json` is served (57/57 feeds, 419 stories from CI;
+      GitLab's runners are not blocked by Sky)
 
 #### Phase 1 feed check (2026-11-19)
 
