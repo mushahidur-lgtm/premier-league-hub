@@ -39,8 +39,10 @@ export function MatchRow({ m, now = Date.now(), showDate = false }) {
       <a
         href={matchHref(m)}
         className="flex min-h-11 min-w-20 flex-col items-center justify-center rounded-md px-2 hover:bg-field"
-        aria-label={`${m.home.name} v ${m.away.name}, ${fmtKick(m.date)}: match centre`}
       >
+        <span className="sr-only">
+          {m.home.name} v {m.away.name}, {fmtKick(m.date)}, match centre:{" "}
+        </span>
         <Middle m={m} now={now} />
         <span className="text-xs text-muted">
           {phase === "live" ? (
