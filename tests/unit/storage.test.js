@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { boundedPut, readJSON, useMyClub, usePersistentState, writeJSON } from "../../src/lib/storage.js";
+import { boundedPut, readJSON, resetMyClub, useMyClub, usePersistentState, writeJSON } from "../../src/lib/storage.js";
 
 describe("readJSON / writeJSON", () => {
   it("round-trips values", () => {
@@ -79,6 +79,30 @@ describe("useMyClub", () => {
     expect(h.result.current.slug).toBeNull();
     act(() => h.result.current.setSlug("also-not-a-club"));
     expect(h.result.current.slug).toBeNull();
+  });
+  it("is shared: a change in one component reaches every other at once", () => {
+    resetMyClub();
+    const picker = renderHook(() => useMyClub());
+    const shell = renderHook(() => useMyClub());
+    act(() => picker.result.current.setSlug("fulham"));
+    expect(shell.result.current.slug).toBe("fulham");
+  });
+  it("keeps the choice in memory when storage refuses writes", () => {
+    resetMyClub();
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("quota");
+    });
+    const h = renderHook(() => useMyClub());
+    act(() => h.result.current.setSlug("fulham"));
+    expect(h.result.current.slug).toBe("fulham");
+    resetMyClub();
+  });
+  it("follows a change made in another tab", () => {
+    resetMyClub();
+    const h = renderHook(() => useMyClub());
+    localStorage.setItem("plh-my-club-v1", '"brentford"');
+    act(() => window.dispatchEvent(new StorageEvent("storage", { key: "plh-my-club-v1" })));
+    expect(h.result.current.slug).toBe("brentford");
   });
   it("can be cleared", () => {
     const h = renderHook(() => useMyClub());

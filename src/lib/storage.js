@@ -3,7 +3,7 @@
  * Small localStorage helpers. Storage can be unavailable (private mode,
  * blocked site data), so every access is guarded and the app works without it.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { clubBySlug } from "../config/clubs.js";
 
 /** Prefix for every key this site writes, so it never collides with another app on the same origin. */
@@ -63,19 +63,65 @@ export function usePersistentState(key, initial) {
 
 const MY_CLUB_KEY = `${STORAGE_PREFIX}my-club-v1`;
 
+/*
+ * The viewer's club is one shared store (same pattern as refresh.js), so picking a club in the header
+ * re-themes the whole shell at once. It also follows changes made in other tabs (the "storage" event).
+ * If storage refuses writes, the choice is kept in memory for this page load.
+ */
+/** @type {string | null} */
+let memoryClub = null;
+let memoryOnly = false;
+const clubSubscribers = new Set();
+const notifyClub = () => clubSubscribers.forEach((fn) => fn());
+
+/** @returns {string | null} */
+function readMyClub() {
+  if (memoryOnly) return memoryClub;
+  const stored = readJSON(MY_CLUB_KEY, /** @type {string | null} */ (null));
+  return typeof stored === "string" && clubBySlug(stored) ? stored : null;
+}
+
+/** @param {string | null} next */
+export function setMyClub(next) {
+  const slug = next && clubBySlug(next) ? next : null;
+  memoryClub = slug;
+  try {
+    localStorage.setItem(MY_CLUB_KEY, JSON.stringify(slug));
+    memoryOnly = false;
+  } catch {
+    memoryOnly = true;
+  }
+  notifyClub();
+}
+
+/** @param {() => void} notify */
+function subscribeMyClub(notify) {
+  clubSubscribers.add(notify);
+  const onStorage = (/** @type {StorageEvent} */ e) => {
+    if (e.key === MY_CLUB_KEY || e.key === null) notify();
+  };
+  if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
+  return () => {
+    clubSubscribers.delete(notify);
+    if (typeof window !== "undefined") window.removeEventListener("storage", onStorage);
+  };
+}
+
 /**
  * The viewer's club, stored on this device only. Returns the slug, or null when none is picked or the
- * stored slug is no longer a club in `clubs.js` (e.g. after promotion/relegation).
+ * stored slug is no longer a club in `clubs.js` (e.g. after promotion/relegation). Every component
+ * using it sees the same value.
  * @returns {{ slug: string | null, setSlug: (slug: string | null) => void }}
  */
 export function useMyClub() {
-  const [stored, setStored] = usePersistentState(MY_CLUB_KEY, /** @type {string | null} */ (null));
-  const slug = typeof stored === "string" && clubBySlug(stored) ? stored : null;
-  const setSlug = useCallback(
-    (/** @type {string | null} */ next) => setStored(next && clubBySlug(next) ? next : null),
-    [setStored],
-  );
-  return { slug, setSlug };
+  const slug = useSyncExternalStore(subscribeMyClub, readMyClub, () => null);
+  return { slug, setSlug: setMyClub };
+}
+
+/** Test helper: forget the in-memory fallback. */
+export function resetMyClub() {
+  memoryClub = null;
+  memoryOnly = false;
 }
 
 /**

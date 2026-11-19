@@ -22,7 +22,6 @@ import { clearMemo, fetchJSON, getNetDiagnostics } from "./net.js";
 import { parseRoster, parseSchedules, parseStandings, parseSummary } from "./parsers.js";
 import { parseNewsFile } from "./news.js";
 import { persistentStats } from "./diagnostics.js";
-import { readJSON } from "./storage.js";
 import { isObj } from "./validate.js";
 import { OUTLETS } from "./sources.js";
 import { bumpRefreshEpoch, useRefreshEpoch } from "./refresh.js";
@@ -37,7 +36,10 @@ export const URLS = {
     `${ESPN}/${scope === "league" ? "eng.1" : "all"}/teams/${espnId}/schedule`,
   roster: (/** @type {string} */ espnId) => `${ESPN}/eng.1/teams/${espnId}/roster`,
   standings: "https://site.web.api.espn.com/apis/v2/sports/soccer/eng.1/standings",
-  /** League-wide fixtures/results. `dates` is "YYYYMMDD" or "YYYYMMDD-YYYYMMDD"; omitted = ESPN's current round. */
+  /**
+   * League-wide fixtures/results. `dates` is one day, "YYYYMMDD"; omitted = ESPN's current round. Date ranges
+   * ("YYYYMMDD-YYYYMMDD") returned HTTP 400 when checked on 2026-11-19, so don't rely on them.
+   */
   scoreboard: (/** @type {string | undefined} */ dates) => `${ESPN}/eng.1/scoreboard${dates ? `?dates=${dates}` : ""}`,
   summary: (/** @type {string} */ eventId, league = "all") => `${ESPN}/${league || "all"}/summary?event=${eventId}`,
 };
@@ -212,14 +214,28 @@ function sanitizeNews(data) {
 const CACHE_CHECKS = { schedule: sanitizeSchedule, scoreboard: sanitizeSchedule, news: sanitizeNews };
 
 /**
+ * One parsed copy of the cache blob (up to maxBytes), reused while the stored string is unchanged and
+ * replaced by writeCache, so mounting several sources doesn't re-parse it each time.
+ * @type {{ raw: string | null, parsed: Record<string, any> }}
+ */
+let cacheCopy = { raw: null, parsed: {} };
+function parsedCache() {
+  const raw = localStorage.getItem(CACHE_KEY);
+  if (!raw) return {};
+  if (raw !== cacheCopy.raw) {
+    const parsed = JSON.parse(raw, revive);
+    cacheCopy = { raw, parsed: isObj(parsed) ? parsed : {} };
+  }
+  return cacheCopy.parsed;
+}
+
+/**
  * Saved sources that are still within their maximum age and well-formed: { [key]: { data, savedAt } }.
  * @returns {Record<string, { data: any, savedAt: Date }>}
  */
 export function readCache(now = Date.now()) {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw, revive);
+    const parsed = parsedCache();
     /** @type {Record<string, { data: any, savedAt: Date }>} */
     const out = {};
     for (const [key, v] of Object.entries(isObj(parsed) ? parsed : {})) {
@@ -247,7 +263,12 @@ export function readCache(now = Date.now()) {
 export function writeCache(key, data, savedAt = new Date()) {
   try {
     /** @type {Record<string, any>} */
-    const all = readJSON(CACHE_KEY, {});
+    let all;
+    try {
+      all = { ...parsedCache() };
+    } catch {
+      all = {}; // unreadable blob: start again
+    }
     all[key] = { data, savedAt };
     const oldestOther = () =>
       Object.entries(all)
@@ -267,6 +288,7 @@ export function writeCache(key, data, savedAt = new Date()) {
     for (let tries = 0; ; tries++) {
       try {
         localStorage.setItem(CACHE_KEY, json);
+        cacheCopy = { raw: json, parsed: all }; // no re-parse: `all` is what was just stored
         persistentStats.bytes = json.length;
         return true;
       } catch (err) {

@@ -171,3 +171,20 @@ describe("persistent cache: size limit and eviction", () => {
     expect(writeCache("a", { x: 1 })).toBe(false);
   });
 });
+
+describe("parsed copy", () => {
+  it("parses the stored blob once, not on every read or write", () => {
+    writeCache("standings", { rows: [{ id: "1" }] }, new Date("2025-03-01T10:00:00Z"));
+    const parse = vi.spyOn(JSON, "parse");
+    readCache(new Date("2025-03-01T10:01:00Z").getTime());
+    readCache(new Date("2025-03-01T10:01:00Z").getTime());
+    writeCache("news", { items: [] }, new Date("2025-03-01T10:02:00Z"));
+    expect(Object.keys(readCache(new Date("2025-03-01T10:03:00Z").getTime())).sort()).toEqual(["news", "standings"]);
+    expect(parse).not.toHaveBeenCalled();
+  });
+  it("re-reads when another tab (or code) changed the stored blob", () => {
+    writeCache("standings", { rows: [] }, new Date());
+    localStorage.setItem(KEY, JSON.stringify({ news: { data: { items: [] }, savedAt: new Date() } }));
+    expect(Object.keys(readCache())).toEqual(["news"]);
+  });
+});
