@@ -18,8 +18,11 @@
 /**
  * @typedef {{
  *   espnId: string, slug: string, name: string, shortName: string, abbr: string,
- *   colors: { primary: string, secondary: string }, aliases: string[], feeds: Feed[]
+ *   colors: { primary: string, secondary: string }, aliases: string[], feeds: Feed[],
+ *   noDarkCrest?: boolean
  * }} Club
+ * `noDarkCrest`: ESPN has no dark-background crest for the club (checked 2026-11-20: a 404), so the dark theme
+ * uses its usual crest without asking for one.
  */
 
 export const FEEDS_CHECKED = "2026-11-19";
@@ -118,6 +121,7 @@ export const CLUBS = [
   },
   {
     espnId: "388",
+    noDarkCrest: true,
     slug: "coventry",
     name: "Coventry City",
     shortName: "Coventry",

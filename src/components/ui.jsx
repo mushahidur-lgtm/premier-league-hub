@@ -138,7 +138,8 @@ export function Crest({ src, espnId, size = 24, label = "" }) {
   // ESPN draws a dark-background version of most crests (navy and black ones vanish on a dark page otherwise);
   // where it has none (a 404), fall back to the usual one.
   const [noDark, setNoDark] = useState(false);
-  const url = base && theme === "dark" && !noDark ? darkCrest(base) : base;
+  const knownMissing = clubByEspnId(espnId ?? /\/(\d+)\.png/.exec(base ?? "")?.[1] ?? "")?.noDarkCrest === true;
+  const url = base && theme === "dark" && !noDark && !knownMissing ? darkCrest(base) : base;
   if (!url) return <span style={{ width: size, height: size }} className="inline-block shrink-0" />;
   return (
     <img

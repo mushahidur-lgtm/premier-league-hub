@@ -27,3 +27,10 @@ describe("theme", () => {
     );
   });
 });
+
+describe("dark crests", () => {
+  it("only the club ESPN has no dark crest for is marked", async () => {
+    const { CLUBS } = await import("../../src/config/clubs.js");
+    expect(CLUBS.filter((c) => c.noDarkCrest).map((c) => c.espnId)).toEqual(["388"]);
+  });
+});
