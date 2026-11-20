@@ -302,8 +302,8 @@ Phase 5 decisions:
    second word.
 6. **Transfer feed** still lets some round-ups through as "Reported" (for example "Ipswich latest: What are the club
    targeting in January?"). A club-page transfer list (`transferFeed(stories, { club })`) was not added.
-7. **Type checking:** files carry `// @ts-check` but nothing runs `tsc --noEmit`; adding it would surface loose JSDoc
-   in the ported modules.
+7. **Type checking:** ~~nothing runs `tsc`~~ done in Phase 6 (`npm run typecheck`, strictNullChecks); `noImplicitAny`
+   is the next increment.
 8. **Dependencies:** ~~`npm audit` advisories in Vitest 3's dev-only deps~~ fixed in Phase 6 (Vitest 5).
 9. **Sky feeds** rate-limit bulk requests; if they start failing from GitLab's runners, `meta.json` will show it and
    BBC + Guardian still cover all 20 clubs.
@@ -405,7 +405,19 @@ tested and documented.
       majors under Decisions). External data review: route ids already digits-only; parsers validate ESPN shapes;
       news links, images and "also" links and the ESPN recap link now reach an `href`/`src` only if they are http(s)
       (the pipeline already dropped other links); crests are `img` sources only.
-- [ ] 6.5 QA: unit, e2e at 375/768/1280, axe, console errors, every route survives a refresh; deploy and live check
+- [x] 6.5 QA: unit, e2e at 375/768/1280, axe, console errors, every route survives a refresh; deploy and live check.
+      Local: lint 0, format clean, typecheck 0, `audit:prod` 0, 499 unit tests in 26 files, build (main chunk 74 KB
+      gzip), 27 e2e (9 tests × 3 widths; axe WCAG 2.1 AA, no overflow; every test now fails on a console error or
+      uncaught exception; new test reloads `#/`, a club, a match, a search and a not-found route and checks content
+      and title). Deployed by pipeline 3091928771, `test` 53 s (typecheck and audit included) + `pages` 45 s; the
+      `pages` log shows "status: ok; output valid"; live `meta.json` `status: ok`, 57/57 feeds, 20/20 squads. Live
+      browser check: a planted `plh-cache-v1` was removed on load (`plh-cache-v2` only), home/club/search/match render
+      with no error sections, a match page survives a reload with its title, no console errors.
+
+Phase 6 outcome: done. Next recommended: **Phase 7 (league dashboard)**, starting with the pipeline's
+`data/gameweeks.json` and league form from FPL `fixtures/` (see the assessment), then the gameweek selector, top
+scorers and assists from ESPN `statistics`, and the table's form column. Carried forward: `noImplicitAny` (196 errors),
+the deferred majors (Vite 8, React 19, ESLint 10, lucide 1.x), and v1 open issues 1–2 and 4–7.
 
 ## Decisions
 
