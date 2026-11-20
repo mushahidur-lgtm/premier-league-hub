@@ -309,6 +309,86 @@ Phase 5 decisions:
    BBC + Guardian still cover all 20 clubs.
 10. **Out of v1 scope:** club history, women's teams, fan predictions, a full transfer tracker, accounts.
 
+## Version 2 (Phases 6–13)
+
+A second brief (2026-11-19) adds Phases 6–13: technical quality, league dashboard, player profiles, statistics, FPL,
+match centre, personalisation, design. One phase per session, in order; Phase 7 does not start until Phase 6 is done,
+tested and documented.
+
+### Implementation assessment (2026-11-19, before Phase 6)
+
+**Already built (extend, don't duplicate):**
+
+| Area             | What exists                                                                                                                                                                                                          |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Home             | Table with zones and GD (no form), scoreboard for ESPN's current dates (grouped by date), top stories, transfers and contracts, club grid, my-club block                                                             |
+| Club page        | Next match + countdown, last result, position + gaps + form (from the club's schedule), news, squad with availability and rule-3 injury notes, fixtures and results                                                  |
+| Match centre     | Score header, key events, team stats table, line-ups on a formation pitch                                                                                                                                            |
+| Search           | Clubs, players (20 rosters, loaded on the search route only) and stories                                                                                                                                             |
+| Data layer       | `net.js` (shared in-flight requests, LRU memo with per-category TTL, 502–504 retry, 429 back-off, 8 s budget); `data.js` (keyed loaders, last-good copy in `localStorage`, one parsed copy of the blob, `useSource`) |
+| Freshness        | Every section: loading, empty, stale, error + Try again, "Source · updated …"; news staleness from the pipeline's `generatedAt`; 10-minute auto-refresh while visible                                                |
+| Pipeline         | 57 feeds + 20 rosters → `news.json` + `meta.json`; refuses to write if every feed fails                                                                                                                              |
+| Tests            | 431 unit (Vitest 3), 24 e2e (Chromium at 1280, 768 and 375 px, axe WCAG 2.1 AA, overflow, skip link, failing-source test)                                                                                            |
+| Personalisation  | One "my club" (`useMyClub`, shared store) that re-themes the UI                                                                                                                                                      |
+| Route validation | `route.js` accepts only digit event ids and known club slugs before anything reaches ESPN                                                                                                                            |
+
+**Technical debt and limits (feeds Phase 6):**
+
+- **Typecheck:** `// @ts-check` heads every `src/lib` and `src/config` file, but no TypeScript is installed and nothing
+  runs `tsc`, so the headers check nothing outside an editor.
+- **Cache:** the "repeated parsing" item is mostly done (Phase 3 keeps one parsed copy). What remains: every
+  `useSource` mount calls `readCache()`, which sanitises _every_ saved source to read one; the storage key is a fixed
+  `plh-cache-v1` with no versioning of its contents; one 3-day max age for everything; expired entries stay stored
+  until size eviction; no freshness window (a saved copy seconds old is still refetched and labelled stale); an empty
+  but successful response (for example a bad standings payload) overwrites a good saved copy.
+- **Pipeline:** a run where most feeds fail still deploys (only "all failed" stops it); `news.json` and `meta.json` are
+  never validated before the build; raw error strings go into `meta.json` (Node's fetch errors can carry addresses).
+- **Dependencies:** `npm audit`: 3 advisories (2 critical, 1 moderate), all in Vitest 3's dev-only `tinypool` and
+  `@vitest/mocker`; fixed by Vitest 5.1.1, which supports Vite `^6.4` (we have 6.4.6). Nothing shipped to the site is
+  affected. No dependency-update policy.
+- **QA gaps:** no e2e assertion that the console is free of errors; route refresh is tested for search and one club
+  page only.
+- Product limits carried from v1: no gameweek numbers, no form on the home table (open issues 1 and 2).
+
+**Data providers (checked 2026-11-19 with `Origin: https://mushahidur.gitlab.io`):**
+
+| Endpoint                                                                                                            | CORS | What it gives                                                                                                                                                                        | Use                                      |
+| ------------------------------------------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| ESPN `site.api…/eng.1/scoreboard` (+ `?dates=YYYYMMDD`)                                                             | Yes  | One day's matches; `leagues[0].calendar` lists match dates. **No week numbers**; `?week=5` returned 0 events                                                                         | Live scores (in use)                     |
+| ESPN `site.web.api…/eng.1/statistics`                                                                               | Yes  | Goals leaders and assists leaders, 50 each (670 KB)                                                                                                                                  | Phase 7 top scorers/assists              |
+| ESPN `site.web.api…/common/v3/…/eng.1/athletes/<id>`                                                                | Yes  | Bio: name, age, citizenship, position, shirt number (no headshot for the player checked)                                                                                             | Phase 8 profiles                         |
+| ESPN `…/athletes/<id>/gamelog`                                                                                      | Yes  | Per-match log (labels, events, season types)                                                                                                                                         | Phase 8 recent performances              |
+| ESPN `…/athletes/<id>/stats`                                                                                        | —    | **HTTP 404**                                                                                                                                                                         | Not usable                               |
+| FPL `fantasy.premierleague.com/api/bootstrap-static/`                                                               | No   | 38 gameweeks (current/next, deadlines), 20 teams (short names), 672 players with `form`, `minutes`, `expected_goals`, `expected_assists`, `now_cost`, `selected_by_percent` (1.8 MB) | Pipeline only: Phases 7, 9, 10           |
+| FPL `…/api/fixtures/` (`?event=N`)                                                                                  | No   | All 380 fixtures, each with `event` (gameweek), kickoff, team ids, scores when finished (100 finished today, none with a null gameweek), difficulty ratings                          | Pipeline only: gameweeks and league form |
+| ESPN standings, schedule, roster, summary                                                                           | Yes  | As in v1                                                                                                                                                                             | In use                                   |
+| Not checked: ESPN team statistics per season, head-to-head, play-by-play detail; FPL `element-summary`, rate limits |      |                                                                                                                                                                                      | Check in the phase that needs them       |
+
+**Consequences for later phases:**
+
+- **Gameweeks (Phase 7):** ESPN can't number gameweeks; FPL is the only source and has no CORS, so the pipeline must
+  write a `data/gameweeks.json` (gameweek → fixtures with kickoff and ESPN team ids via a `fplShort` per club in
+  `clubs.js`), and the browser fetches ESPN's scoreboard for that gameweek's dates for live scores. FPL's gameweek is
+  the fantasy round: a postponed match moves to the round it is replayed in (and can have no round until rescheduled;
+  none today). Label it "Gameweek N (FPL)" and show unscheduled matches separately; never infer a number.
+- **League form (Phase 7):** the same FPL `fixtures/` response has every finished score, so the pipeline can derive
+  each club's last five league results in one request, instead of 40 browser requests.
+- **xG/xA (Phase 9) and FPL (Phase 10):** FPL carries expected goals/assists per player, but they are FPL's numbers;
+  label them as such. ESPN has none in the endpoints above.
+- **FPL reliability:** fetched only by the pipeline every 4 hours (12 requests a day), so rate limits are not a
+  concern; a failed fetch must keep the previous file rather than deploy nothing.
+
+### Phase 6: technical quality and performance
+
+- [x] Assessment above
+- [ ] 6.4a Vitest 5 upgrade (fixes all audit findings; Vite stays 6.4)
+- [ ] 6.1 `npm run typecheck` (TypeScript over the `// @ts-check` files), errors fixed, in CI
+- [ ] 6.2 Cache: versioning, per-kind max age and freshness, pruning, cheaper mount reads, empty-overwrite guard
+- [ ] 6.3 Pipeline: validate output before writing, degraded-run floor, clearer and address-free failure reporting;
+      form/gameweek generation investigated (above)
+- [ ] 6.4b Production-dependency audit gate in CI; dependency update policy; upgrades evaluated
+- [ ] 6.5 QA: unit, e2e at 375/768/1280, axe, console errors, every route survives a refresh; deploy and live check
+
 ## Decisions
 
 - **JavaScript + JSDoc + `// @ts-check`** in `src/lib` and `src/config`, not TypeScript. Arsenal Hub is JS, so Phase 2
