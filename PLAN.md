@@ -493,6 +493,9 @@ a day so far).
       (`reportFor` in `injuries.js`; with a one-player list "Saka replaces injured Martinelli" was read as Saka
       injured; unit test added); date of birth from the roster's date, written out in UTC (`fmtBirthDate`), not
       ESPN's ambiguous day/month string; e2e asserts that a search result links to the profile.
+      Deployed by pipeline 3092118306 (`test` 67 s + `pages` 38 s). Live: Emiliano Martínez's profile shows the same
+      "Reported back from injury · Sky Sports" note as the Chelsea squad list; date of birth "September 2, 1992"; no
+      console errors. Local: 543 unit tests, 39 e2e.
 - [x] Found in the live check: a browser that had saved league.json 11 minutes before the deploy kept showing
       minutes as "–" (its copy was inside the 15-minute fresh window, so no request). `CACHE_VERSION` 2 → 3; CLAUDE.md
       now says to bump it whenever a pipeline file gains a field the UI reads.
