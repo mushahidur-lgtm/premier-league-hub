@@ -1,6 +1,6 @@
 import { Component, useEffect, useMemo, useState } from "react";
 import { darkCrest, useTheme } from "../lib/theme.js";
-import { RefreshCw, TriangleAlert } from "lucide-react";
+import { Inbox, RefreshCw, TriangleAlert } from "lucide-react";
 import { clubByEspnId, clubBySlug } from "../config/clubs.js";
 import { sizedCrest } from "../lib/crest.js";
 import { fmtFull, timeAgo } from "../lib/format.js";
@@ -99,7 +99,12 @@ export function Section({
           {state.status === "refreshing" ? "Saved copy from an earlier visit; updating…" : "This may be out of date."}
         </p>
       )}
-      {hasData && state.empty && <p className="rounded-md bg-field px-3 py-6 text-muted">{empty}</p>}
+      {hasData && state.empty && (
+        <p className="flex items-center gap-2 rounded-md bg-field px-3 py-6 text-muted">
+          <Inbox aria-hidden="true" className="size-5 shrink-0" />
+          {empty}
+        </p>
+      )}
       {hasData && !state.empty && children(state.data)}
       {state.warnings?.length > 0 && <p className="mt-2 text-sm text-muted">{state.warnings.join(". ")}.</p>}
       {((sourceLine && hasData) || state.status === "error") && <SourceLine state={state} />}
@@ -130,8 +135,10 @@ export function Skeleton({ label = "Loading…", lines = 3, heading = false }) {
 export function Crest({ src, espnId, size = 24, label = "" }) {
   const { theme } = useTheme();
   const base = src || (espnId ? `https://a.espncdn.com/i/teamlogos/soccer/500/${espnId}.png` : null);
-  // ESPN draws a dark-background version of each crest (navy and black crests vanish on a dark page otherwise).
-  const url = base && theme === "dark" ? darkCrest(base) : base;
+  // ESPN draws a dark-background version of most crests (navy and black ones vanish on a dark page otherwise);
+  // where it has none (a 404), fall back to the usual one.
+  const [noDark, setNoDark] = useState(false);
+  const url = base && theme === "dark" && !noDark ? darkCrest(base) : base;
   if (!url) return <span style={{ width: size, height: size }} className="inline-block shrink-0" />;
   return (
     <img
@@ -142,6 +149,7 @@ export function Crest({ src, espnId, size = 24, label = "" }) {
       height={size}
       loading="lazy"
       decoding="async"
+      onError={url !== base ? () => setNoDark(true) : undefined}
       className="inline-block shrink-0 object-contain"
       style={{ width: size, height: size }}
     />

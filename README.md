@@ -70,7 +70,14 @@ live from ESPN's CDN. The injury story in the squad shot is the made-up fixture 
     regular starters only, 60 %+ of their club's minutes, on request), sorted by the figure you choose. It can't
     see your FPL team, so it reminds you of the three-per-club limit instead of pretending to check it.
   - _Compare_: any two FPL players side by side, including FPL's xG, xA and projected points.
-- **Search** (`#/search?q=`) across clubs, players (all 20 squads) and stories.
+- **Search** (`#/search?q=`) across clubs, players (all 20 squads) and stories. Press **/** anywhere to jump to
+  it; the box has a clear button and the result count is announced once typing settles.
+- **Light and dark themes**: follows the device, or pick one with the header button (device → light → dark,
+  remembered in `localStorage`, applied before first paint). Every colour, club accent and chart passes WCAG AA
+  in both; crests switch to ESPN's dark-background versions where ESPN has one.
+- **New-version notice**: GitLab Pages caches files for 10 minutes and its headers can't be changed, so a visitor
+  can be served an older page just after a deploy. Each build writes `version.json`; the site checks it uncached
+  and offers a Reload when a newer build is live.
 
 ## Commands
 

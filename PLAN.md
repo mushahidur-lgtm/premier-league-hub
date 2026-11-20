@@ -764,12 +764,18 @@ Survey (2026-11-20):
   for up to 10 minutes after a deploy a returning visitor can get the previous `index.html`. Fixed in the app: the
   build writes `version.json`; the app checks it uncached and offers a reload when a newer build is live.
 
-- [ ] Dark mode: tokens for both themes, a System / Light / Dark control (stored in `localStorage`, applied before
-      first paint), club accents and chart colours that pass AA on both, `color-scheme` for native controls
-- [ ] Responsive navigation: current page marked (`aria-current`) and visible at 375 px with the theme control
-- [ ] Skeleton loading in place of "Loading…" text, for sections and lazy pages
-- [ ] Empty and error states: consistent, with an icon and a next step
-- [ ] Search: "/" shortcut from anywhere, result count announced, clear button
-- [ ] Mobile standings, match cards, player cards: checked at 375 px, fixed where they fall short
-- [ ] New-version notice (the Pages caching above)
-- [ ] Tests (axe in dark mode too), README, deploy and live check
+- [x] Dark mode: tokens for both themes, a System / Light / Dark control (stored in `localStorage`, applied before
+      first paint), club accents and chart colours that pass AA on both, `color-scheme` for native controls. Accent
+      test covers all 20 clubs on every dark surface; series colours 3.9:1+ and text 6.7:1+ on the dark page; ESPN
+      dark crests (one club, ESPN id 388, has none: falls back to the usual crest)
+- [x] Responsive navigation: current page marked (`aria-current`) and visible at 375 px with the theme control
+- [x] Skeleton loading in place of "Loading…" text, for sections and lazy pages
+- [x] Empty and error states: consistent, with an icon (errors already had one and Try again)
+- [x] Search: "/" shortcut from anywhere (never while typing in a field), result count announced once typing
+      settles, clear button
+- [x] Mobile standings, match cards, player cards: checked at 375 px in both themes; no overflow or clipping
+      found, nothing redesigned (the brief: avoid unnecessary redesigns)
+- [x] New-version notice (the Pages caching above)
+- [x] Tests and README. Local: 612 unit tests in 34 files, 76 e2e (new: dark mode axe and overflow on 12 routes,
+      theme button, new-version notice, "/" shortcut and clear button); lint/typecheck/format clean
+- [ ] Deploy and live check
