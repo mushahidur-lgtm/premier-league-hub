@@ -391,8 +391,15 @@ tested and documented.
       copies pruned on write; a mount reads and checks only its own key; an empty table, squad or news answer keeps
       the last good copy and shows it stale; a league-only schedule fallback is never saved over a complete copy;
       20 new unit tests)
-- [ ] 6.3 Pipeline: validate output before writing, degraded-run floor, clearer and address-free failure reporting;
-      form/gameweek generation investigated (above)
+- [x] 6.3 Pipeline: validate output before writing, degraded-run floor, clearer and address-free failure reporting;
+      form/gameweek generation investigated (above). `scripts/lib/validate-data.mjs` (pure, 20 tests): schema checks
+      for both files, no IP addresses or credential-like text anywhere in `meta.json` or in story links; errors carry
+      the cause code ("fetch failed (ECONNREFUSED)") with addresses removed; `meta.json` gains `status`
+      (ok/degraded) and `problems`. Floor: under half the feeds or under 100 stories → exit 1, nothing written.
+      Checked locally: normal run "status: ok; output valid"; total outage and a Guardian-only outage (21/57 feeds, 76
+      stories) both exit 1 without touching the files. GitLab publishes Pages only when the `pages` job succeeds, so
+      the live site keeps its data (GitLab's documented behaviour; not forced live). Consequence: a push during a
+      feed outage doesn't deploy code either; re-run the job once feeds recover.
 - [ ] 6.4b Production-dependency audit gate in CI; dependency update policy; upgrades evaluated
 - [ ] 6.5 QA: unit, e2e at 375/768/1280, axe, console errors, every route survives a refresh; deploy and live check
 

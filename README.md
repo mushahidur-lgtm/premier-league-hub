@@ -70,8 +70,11 @@ de-duplicates, tags each story with clubs and players, and writes two same-origi
   `players`, `itemsWithPlayers`), and per-source status lists `feeds[]` (`club`, `outlet`, `url`, `ok`, `status`,
   `items`, `error`, `ms`) and `rosters[]` (`club`, `ok`, `players`, `error`).
 
-A failed feed or squad is recorded in `meta.json` and never fails the build; the job fails only if every feed fails,
-so an outage can't deploy empty news over good news. Both files are generated in CI and git-ignored.
+`meta.json` also carries `status` (`ok` or `degraded`) and `problems`. A failed feed or squad is recorded there
+(error codes only; IP addresses are removed) and the run still deploys. Below a floor (fewer than half the feeds, or
+fewer than 100 stories) the pipeline writes nothing and exits non-zero, so the `pages` job fails and GitLab keeps the
+site that is live. Both files are checked by `scripts/lib/validate-data.mjs` (structure, known clubs and outlets,
+no addresses or credential-like text) before they are written. Both are generated in CI and git-ignored.
 
 ## CI minutes budget
 
