@@ -250,6 +250,102 @@ function rosterPlayer(p) {
 }
 
 /** ESPN match summary -> lineups, events and team stats. Missing pieces stay empty. */
+/**
+ * ESPN commentary play types → the timeline's kinds. "Key" kinds are shown by default; the rest
+ * (shots, corners, fouls, offsides) when the reader asks for the full commentary.
+ */
+/** @type {[RegExp, string][]} */
+const PLAY_KIND = [
+  [/^own-goal/, "own-goal"],
+  [/^penalty---scored/, "penalty"],
+  [/^penalty---(missed|saved)/, "penalty-missed"],
+  [/^goal/, "goal"],
+  [/^yellow-red|^red/, "red"],
+  [/^yellow/, "yellow"],
+  [/^substitution/, "sub"],
+  [/^var/, "var"],
+  [/^(kickoff|halftime|start-|end-)/, "period"],
+  [/^shot-on-target/, "shot-on"],
+  [/^shot-hit-woodwork/, "woodwork"],
+  [/^shot-off-target/, "shot-off"],
+  [/^shot-blocked/, "shot-blocked"],
+  [/^corner/, "corner"],
+  [/^offside/, "offside"],
+  [/^(foul|handball)/, "foul"],
+];
+export const KEY_KINDS = new Set([
+  "goal",
+  "penalty",
+  "own-goal",
+  "penalty-missed",
+  "yellow",
+  "red",
+  "sub",
+  "var",
+  "period",
+]);
+
+/**
+ * The match timeline from ESPN's commentary, in match order. The team comes as a display name only, so it is
+ * matched to the two sides' ids by name; anything else (or none) is null.
+ * @param {any} json summary
+ * @param {{ id: string, name: string | null }[]} sides
+ */
+function parseTimeline(json, sides) {
+  const byName = new Map(sides.filter((t) => t.name).map((t) => [t.name, t.id]));
+  return arr(json.commentary)
+    .filter((c) => isObj(c) && str(c.text))
+    .map((c, i) => {
+      const type = str(c.play?.type?.type) ?? "";
+      const kind = c.play ? (PLAY_KIND.find(([re]) => re.test(type))?.[1] ?? "other") : "info";
+      return {
+        seq: Number.isFinite(c.sequence) ? c.sequence : i,
+        minute: str(c.time?.displayValue) ?? "",
+        kind,
+        text: String(c.text).slice(0, 300),
+        teamId: byName.get(str(c.play?.team?.displayName) ?? "") ?? null,
+      };
+    })
+    .sort((a, b) => a.seq - b.seq);
+}
+
+/**
+ * The clubs' previous meetings from ESPN's head-to-head series (any competition), finished ones only and
+ * never this match. ESPN's own series summary isn't used: it isn't consistent about its order.
+ * @param {any} json summary
+ * @param {string | undefined} eventId this match
+ */
+function parseHeadToHead(json, eventId) {
+  const series = arr(json.seasonseries).find((x) => isObj(x) && x.type === "head-to-head");
+  return arr(series?.events)
+    .filter((e) => isObj(e) && (e.statusType?.state ?? e.status) === "post" && String(e.id) !== String(eventId))
+    .map((e) => {
+      const side = (/** @type {string} */ ha) => {
+        const c = arr(e.competitors).find((x) => x?.homeAway === ha);
+        return c
+          ? {
+              id: String(c.team?.id),
+              name: str(c.team?.displayName),
+              abbr: str(c.team?.abbreviation),
+              score: num(c.score),
+              winner: c.winner === true,
+            }
+          : null;
+      };
+      const home = side("home");
+      const away = side("away");
+      return {
+        id: /^\d+$/.test(String(e.id)) ? String(e.id) : null,
+        date: date(e.date),
+        competition: str(e.competitionName),
+        home,
+        away,
+      };
+    })
+    .filter((e) => e.home && e.away && e.home.score != null && e.away.score != null)
+    .sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
+}
+
 export function parseSummary(json) {
   expectObject(json, "match summary");
   const header = json.header?.competitions?.[0];
@@ -344,8 +440,13 @@ export function parseSummary(json) {
         competitions: [header],
       })
     : null;
+  const sides = arr(header?.competitors)
+    .filter(isObj)
+    .map((c) => ({ id: String(c.team?.id), name: str(c.team?.displayName) }));
   return {
     match,
+    timeline: parseTimeline(json, sides),
+    h2h: parseHeadToHead(json, json.header?.id ?? header?.id),
     status: header?.status?.type,
     clock: header?.status?.displayClock,
     stats,

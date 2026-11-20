@@ -31,7 +31,7 @@ const last = [...schedule.events]
 const fullSummary = await get(`${ESPN}/all/summary?event=${last.id}`);
 // Only the parts parseSummary reads.
 const summary = Object.fromEntries(
-  ["header", "boxscore", "rosters", "keyEvents", "leaders", "article", "gameInfo"].map((k) => [k, fullSummary[k]]),
+  ["header", "boxscore", "rosters", "keyEvents", "commentary", "seasonseries", "leaders", "article", "gameInfo"].map((k) => [k, fullSummary[k]]),
 );
 const news = await get(`${SITE}/news.json`);
 const meta = await get(`${SITE}/meta.json`);

@@ -697,3 +697,34 @@ FPL investigation (2026-11-20, from the pipeline's user agent):
 - The site can't see anyone's FPL team (`entry/` needs sign-in and has no CORS), so the assistant asks for the
   money in the bank and, optionally, the price paid; it can't check the 3-per-club limit against a squad it can't
   see, and says so.
+
+### Phase 11: match centre improvements
+
+- [x] ESPN's match summary checked for what each item needs (below), before building
+- [ ] Timeline: ESPN's commentary (every shot, corner, foul, card, substitution, VAR decision), key events by default
+- [ ] Goals and assists, cards and substitutions by team
+- [ ] Possession, shots and shots on target compared visually (with the full stats table kept)
+- [ ] Formations: as ESPN publishes them, with the limit stated
+- [ ] Head-to-head: last meetings from ESPN, all competitions, competition named
+- [ ] Related news from this site's pipeline (stories tagged with both clubs, else either club around kick-off)
+- [ ] Live data told apart from periodically refreshed data: live summary re-fetched every 30 s while the match
+      is in play (and the tab is visible), labelled "Live"; head-to-head and news labelled with their own source and
+      refresh rate
+- [ ] Unit and e2e tests; README; deploy and live check
+
+ESPN summary check (2026-11-20, 6 finished matches, `site.api…/all/summary?event=<id>`, CORS OK, already used):
+
+- `keyEvents`: goals (with `participants[1]` = the assister when ESPN names one, "Assisted by …" in the text),
+  penalties, own goals, yellow and red cards, substitutions, period markers. Already parsed for "Key events".
+- `commentary`: 80–120 entries per match with minute, text and a play type (`shot-on-target`, `shot-off-target`,
+  `shot-blocked`, `shot-hit-woodwork`, `corner-awarded`, `offside`, `foul`, `handball`, `var---…`, cards,
+  substitutions, goals, periods). The full timeline.
+- `boxscore`: possession, shots, shots on target and 25 more team figures. Already in "Team stats".
+- `rosters[].formation`: **one formation per team**, and no formation-change event in `keyEvents` or
+  `commentary` in any match checked. Formation changes can't be shown without inventing them; the page shows the
+  formation ESPN lists and says ESPN doesn't publish changes.
+- `seasonseries` (type `head-to-head`): the clubs' last five meetings, any competition (`competitionName`), with
+  scores and ESPN event ids (the match centre's `/all/summary` loads any of them).
+- `news`: ESPN's general football headlines, not about the match: not used. Related news comes from this site's
+  own tagged stories instead.
+- `lastFiveGames`: each club's last five results (any competition). Not needed: form is already on club pages.

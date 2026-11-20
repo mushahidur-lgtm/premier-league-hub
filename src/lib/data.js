@@ -264,8 +264,9 @@ export function loaderFor(key) {
  * Also bump it when a pipeline file gains a field the UI reads: a copy inside its fresh window is used without a
  * request, so without a bump visitors would see the old shape for up to that window.
  *   3: league.json gained `minutes` (Phase 8).
+ *   4: the match summary gained `timeline` and `h2h` (Phase 11).
  */
-export const CACHE_VERSION = 3;
+export const CACHE_VERSION = 4;
 export const CACHE_KEY = `plh-cache-v${CACHE_VERSION}`;
 const ANY_CACHE_VERSION = /^plh-cache-v\d+$/;
 
@@ -742,4 +743,33 @@ export function useAutoRefresh(intervalMs = AUTO_REFRESH_MS) {
       document.removeEventListener("visibilitychange", maybe);
     };
   }, [intervalMs]);
+}
+
+/**
+ * Re-fetches one live source every `intervalMs` while `active` (a match in play) and the tab is visible, and
+ * at once when the tab becomes visible again after that long. Stops when `active` turns false.
+ * @param {() => unknown} reload the source's reload
+ * @param {boolean} active
+ * @param {number} intervalMs
+ */
+export function useLivePoll(reload, active, intervalMs) {
+  const last = useRef(Date.now());
+  const latest = useRef(reload);
+  latest.current = reload;
+  useEffect(() => {
+    if (!active) return undefined;
+    last.current = Date.now();
+    const tick = () => {
+      if (document.visibilityState === "visible" && Date.now() - last.current >= intervalMs - 1000) {
+        last.current = Date.now();
+        latest.current();
+      }
+    };
+    const id = setInterval(tick, intervalMs);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [active, intervalMs]);
 }
