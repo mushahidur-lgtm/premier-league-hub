@@ -58,6 +58,10 @@ const fplFixtures = [
 const clubs = CLUBS.map(({ slug, espnId, abbr }) => ({ slug, espnId, abbr }));
 const slugs = { clubSlugs: new Set(CLUBS.map((c) => c.slug)) };
 const NOW = new Date("2026-11-19T20:00:00Z");
+const squads = [{ id: "1", name: "Declan Rice", lastName: "Rice", club: "arsenal" }];
+bootstrap.elements = [
+  { id: 7, team: 1, first_name: "Declan", second_name: "Rice", web_name: "Rice", minutes: 822, starts: 10 },
+];
 
 describe("pipeline: league.json", () => {
   it("maps all 20 FPL teams to clubs by short name", () => {
@@ -114,11 +118,11 @@ describe("pipeline: league.json", () => {
   it("lists a failed source as missing instead of filling it in", () => {
     const { league } = buildLeague(null, null, clubs, NOW);
     expect(league).toMatchObject({ gameweeks: null, form: null, leaders: null });
-    expect(league.missing.sort()).toEqual(["form", "gameweeks", "leaders"]);
+    expect(league.missing.sort()).toEqual(["form", "gameweeks", "leaders", "minutes"]);
     expect(validateLeague(league, slugs)).toEqual([]);
   });
   it("produces a valid file from good data", () => {
-    const { league, problems } = buildLeague({ bootstrap, fixtures: fplFixtures }, { stats: [] }, clubs, NOW);
+    const { league, problems } = buildLeague({ bootstrap, fixtures: fplFixtures }, { stats: [] }, clubs, NOW, squads);
     expect(problems).toEqual(["1 FPL fixtures skipped as malformed"]);
     expect(league.missing).toEqual([]);
     expect(league.asOf.gameweeks).toBe(NOW.toISOString());
@@ -136,21 +140,22 @@ describe("pipeline: league.json", () => {
       { stats: [] },
       clubs,
       new Date("2026-11-19T16:00:00Z"),
+      squads,
     );
     const now = buildLeague(null, { stats: [] }, clubs, NOW).league;
     const merged = carryOver(now, good.league);
     expect(merged.missing).toEqual([]);
-    expect(merged.carriedOver.sort()).toEqual(["form", "gameweeks"]);
+    expect(merged.carriedOver.sort()).toEqual(["form", "gameweeks", "minutes"]);
     expect(merged.asOf.gameweeks).toBe("2026-11-19T16:00:00.000Z");
     expect(merged.asOf.leaders).toBe(NOW.toISOString());
     expect(validateLeague(merged, slugs)).toEqual([]);
   });
   it("doesn't carry over a part the live file was missing too", () => {
     const empty = buildLeague(null, null, clubs, NOW).league;
-    expect(carryOver(empty, empty).missing.sort()).toEqual(["form", "gameweeks", "leaders"]);
+    expect(carryOver(empty, empty).missing.sort()).toEqual(["form", "gameweeks", "leaders", "minutes"]);
   });
   it("validateLeague catches unknown clubs and bad results", () => {
-    const { league } = buildLeague({ bootstrap, fixtures: fplFixtures }, { stats: [] }, clubs, NOW);
+    const { league } = buildLeague({ bootstrap, fixtures: fplFixtures }, { stats: [] }, clubs, NOW, squads);
     expect(validateLeague({ ...league, form: { arsenal: [{ result: "X", opponent: "chelsea" }] } }, slugs)).toEqual([
       "form malformed",
     ]);
@@ -160,7 +165,7 @@ describe("pipeline: league.json", () => {
 });
 
 describe("browser: league dashboard", () => {
-  const file = buildLeague({ bootstrap, fixtures: fplFixtures }, { stats: [] }, clubs, NOW).league;
+  const file = buildLeague({ bootstrap, fixtures: fplFixtures }, { stats: [] }, clubs, NOW, squads).league;
   const league = parseLeague(JSON.parse(JSON.stringify(file)));
 
   it("parses dates and drops records it can't trust", () => {

@@ -172,8 +172,9 @@ export function readLeaders(stats, clubByEspnId, n = 10) {
  * @param {any} stats
  * @param {LeagueClub[]} clubs
  * @param {Date} now
+ * @param {SquadPlayer[]} [squads] ESPN squad players (for FPL minutes); none = minutes missing
  */
-export function buildLeague(fpl, stats, clubs, now) {
+export function buildLeague(fpl, stats, clubs, now, squads = []) {
   const problems = [];
   const missing = [];
   /** @type {any} */
@@ -184,12 +185,13 @@ export function buildLeague(fpl, stats, clubs, now) {
     fixtures: null,
     form: null,
     leaders: null,
+    minutes: null,
   };
   if (fpl) {
     const { map, unmatched } = mapTeams(fpl.bootstrap, clubs);
     if (unmatched.length || map.size !== clubs.length) {
       problems.push(`FPL teams not matched to clubs: ${unmatched.join(", ") || `${map.size} of ${clubs.length}`}`);
-      missing.push("gameweeks", "form");
+      missing.push("gameweeks", "form", "minutes");
     } else {
       const { fixtures, skipped } = readFixtures(fpl.fixtures, map);
       if (skipped) problems.push(`${skipped} FPL fixtures skipped as malformed`);
@@ -199,8 +201,14 @@ export function buildLeague(fpl, stats, clubs, now) {
         fixtures,
         clubs.map((c) => c.slug),
       );
+      if (squads.length) {
+        const m = fplMinutes(fpl.bootstrap, map, squads);
+        out.minutes = m.minutes;
+        if (m.unmatched)
+          problems.push(`${m.unmatched} of ${m.total} squad players have no FPL match (minutes unknown)`);
+      } else missing.push("minutes");
     }
-  } else missing.push("gameweeks", "form");
+  } else missing.push("gameweeks", "form", "minutes");
   if (stats) {
     out.season = typeof stats?.season?.displayName === "string" ? stats.season.displayName : null;
     out.leaders = readLeaders(stats, new Map(clubs.map((c) => [c.espnId, c.slug])));
@@ -210,9 +218,89 @@ export function buildLeague(fpl, stats, clubs, now) {
 }
 
 /** The parts of league.json, the fields each one owns, and so what can be carried over on its own. */
-const PARTS = /** @type {const} */ (["gameweeks", "form", "leaders"]);
+const PARTS = /** @type {const} */ (["gameweeks", "form", "leaders", "minutes"]);
 /** @type {Record<string, string[]>} */
-const FIELDS = { gameweeks: ["gameweeks", "fixtures"], form: ["form"], leaders: ["leaders", "season"] };
+const FIELDS = {
+  gameweeks: ["gameweeks", "fixtures"],
+  form: ["form"],
+  leaders: ["leaders", "season"],
+  minutes: ["minutes"],
+};
+
+/** @typedef {{ id: string, name: string, lastName: string | null, club: string }} SquadPlayer */
+
+/** Lower case, accents folded, punctuation as spaces: "Ødegaard" → "odegaard". @param {unknown} s */
+const fold = (s) =>
+  String(s ?? "")
+    .replace(/[øØ]/g, "o")
+    .replace(/[æÆ]/g, "ae")
+    .replace(/ß/g, "ss")
+    .replace(/[łŁ]/g, "l")
+    .replace(/ı/g, "i")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+/**
+ * Minutes (and starts) per ESPN player id, from FPL's player list. A player is matched only inside his own
+ * club, and only by: the same full name (spaces ignored); or the same surname, or ESPN's surname equal to the last
+ * word of FPL's ("Fernandes" in "Borges Fernandes"), unique in both squads; or FPL's short "web name" equal to his
+ * ESPN surname or full name, unique in both squads. Anyone else gets no entry: minutes unknown,
+ * never 0 and never a nearest guess.
+ * @param {any} bootstrap
+ * @param {Map<number, string>} teams FPL team id → club slug
+ * @param {SquadPlayer[]} squads
+ */
+export function fplMinutes(bootstrap, teams, squads) {
+  /** @type {Map<string, any[]>} */
+  const fplByClub = new Map();
+  for (const e of Array.isArray(bootstrap?.elements) ? bootstrap.elements : []) {
+    const club = teams.get(e?.team);
+    if (!club || int(e.id) == null || int(e.minutes) == null) continue;
+    fplByClub.set(club, [...(fplByClub.get(club) ?? []), e]);
+  }
+  /** @type {Record<string, { fpl: number, minutes: number, starts: number | null }>} */
+  const minutes = {};
+  let unmatched = 0;
+  const byClub = new Map();
+  for (const p of squads) byClub.set(p.club, [...(byClub.get(p.club) ?? []), p]);
+  for (const [club, players] of byClub) {
+    const fpl = fplByClub.get(club) ?? [];
+    const count = (/** @type {string[]} */ keys) => {
+      const m = new Map();
+      for (const k of keys) if (k) m.set(k, (m.get(k) ?? 0) + 1);
+      return m;
+    };
+    const squash = (/** @type {unknown} */ x) => fold(x).replace(/ /g, "");
+    // FPL often lists every family name ("Borges Fernandes"); ESPN uses the one players are known by.
+    const lastWord = (/** @type {unknown} */ x) => fold(x).split(" ").pop() ?? "";
+    const espnSurnames = count(players.map((p) => squash(p.lastName)));
+    const fplSurnames = count(fpl.map((e) => squash(e.second_name)));
+    const fplLastWords = count(fpl.map((e) => lastWord(e.second_name)));
+    const fplWeb = count(fpl.map((e) => fold(e.web_name)));
+    const used = new Set();
+    for (const p of players) {
+      const full = fold(p.name);
+      const last = squash(p.lastName);
+      const uniqueHere = last && espnSurnames.get(last) === 1;
+      const pick =
+        fpl.find((e) => squash(`${e.first_name} ${e.second_name}`) === squash(p.name)) ??
+        (uniqueHere && fplSurnames.get(last) === 1 ? fpl.find((e) => squash(e.second_name) === last) : undefined) ??
+        (uniqueHere && fplLastWords.get(last) === 1 ? fpl.find((e) => lastWord(e.second_name) === last) : undefined) ??
+        fpl.find((e) => {
+          const w = fold(e.web_name);
+          return fplWeb.get(w) === 1 && (w === full || (w === last && espnSurnames.get(last) === 1));
+        });
+      if (pick && !used.has(pick.id)) {
+        used.add(pick.id);
+        minutes[p.id] = { fpl: pick.id, minutes: pick.minutes, starts: int(pick.starts) };
+      } else unmatched++;
+    }
+  }
+  return { minutes, unmatched, total: squads.length };
+}
 
 /**
  * Fills parts this run couldn't fetch from the previously deployed league.json, keeping that copy's own date

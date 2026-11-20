@@ -98,7 +98,10 @@ async function main() {
   if (okCount === 0) return fail(["every feed failed"], results);
 
   const now = new Date();
-  const league = await leagueData(now);
+  const league = await leagueData(
+    now,
+    rosters.flatMap((r) => r.players),
+  );
   const items = buildNews(
     results.map((r) => ({ items: r.items, club: r.feed.club })),
     CLUBS,
@@ -142,7 +145,12 @@ async function main() {
           asOf: league.file.asOf,
           problems: league.problems,
         }
-      : { missing: ["gameweeks", "form", "leaders"], carriedOver: [], asOf: null, problems: league.problems },
+      : {
+          missing: ["gameweeks", "form", "leaders", "minutes"],
+          carriedOver: [],
+          asOf: null,
+          problems: league.problems,
+        },
     feeds: results.map((r) => ({
       club: r.feed.club,
       outlet: r.feed.outlet,
@@ -191,9 +199,10 @@ async function fetchJson(url) {
  * fails validation, never stops the news deploy: its part is carried over from the live league.json with
  * that copy's date, or left out and listed in `missing`.
  * @param {Date} now
+ * @param {any[]} squads ESPN squad players, for FPL minutes
  * @returns {Promise<{ file: any, problems: string[] }>}
  */
-async function leagueData(now) {
+async function leagueData(now, squads) {
   /** @type {string[]} */
   const problems = [];
   /** @param {string} label @param {string} url */
@@ -210,15 +219,15 @@ async function leagueData(now) {
     tryJson("FPL fixtures", FPL_FIXTURES),
     tryJson("ESPN statistics", ESPN_STATS),
   ]);
-  const built = buildLeague(bootstrap && fixtures ? { bootstrap, fixtures } : null, stats, CLUBS, now);
+  const built = buildLeague(bootstrap && fixtures ? { bootstrap, fixtures } : null, stats, CLUBS, now, squads);
   problems.push(...built.problems);
   let file = built.league;
   const slugs = new Set(CLUBS.map((c) => c.slug));
   const invalid = validateLeague(file, { clubSlugs: slugs });
   if (invalid.length) {
     problems.push(`league.json failed validation: ${invalid.slice(0, 5).join("; ")}`);
-    file = { ...file, gameweeks: null, fixtures: null, form: null, leaders: null, season: null };
-    file.missing = ["gameweeks", "form", "leaders"];
+    file = { ...file, gameweeks: null, fixtures: null, form: null, leaders: null, season: null, minutes: null };
+    file.missing = ["gameweeks", "form", "leaders", "minutes"];
   }
   if (file.missing.length) {
     const previous = await tryJson("previous league.json", `${SITE_URL}data/league.json`);

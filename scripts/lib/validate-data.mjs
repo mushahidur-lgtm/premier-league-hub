@@ -125,7 +125,7 @@ export function runHealth(c, { minFeedShare = 0.5, minItems = 100 } = {}) {
 }
 
 const RESULTS = new Set(["W", "D", "L"]);
-const PART_NAMES = new Set(["gameweeks", "form", "leaders"]);
+const PART_NAMES = new Set(["gameweeks", "form", "leaders", "minutes"]);
 
 /**
  * Problems with a league.json object; [] when it is fine. Each part may be null only if it is listed in
@@ -190,5 +190,16 @@ export function validateLeague(league, { clubSlugs }) {
     isObj(league.leaders) && leaderList(league.leaders.goals) && leaderList(league.leaders.assists),
     "leaders malformed",
   );
+  const minutesOk =
+    isObj(league.minutes) &&
+    Object.entries(league.minutes).every(
+      ([id, m]) =>
+        /^\d+$/.test(id) &&
+        isObj(m) &&
+        Number.isInteger(m.fpl) &&
+        isCount(m.minutes) &&
+        (m.starts === null || isCount(m.starts)),
+    );
+  need("minutes", minutesOk, "minutes malformed");
   return p;
 }
