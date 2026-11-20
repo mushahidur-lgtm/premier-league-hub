@@ -37,7 +37,12 @@ live from ESPN's CDN. The injury story in the squad shot is the made-up fixture 
   and how old it is.
 - **Club pages** (`#/club/<slug>`): next match with countdown, last result, table position, gaps and form, club news
   with outlet credibility, squad with availability, fixtures and results.
-- **Match centre** (`#/match/<event-id>`): score, key events, team stats, line-ups on a formation pitch.
+- **Match centre** (`#/match/<event-id>`): score; goals (with assists), cards and substitutions by team; a
+  timeline of ESPN's commentary (key events, or every shot, corner and foul on request); possession, shots and shots
+  on target compared, with the full stats table; line-ups on a formation pitch (one formation per team, as ESPN
+  lists it: ESPN publishes no formation changes); the clubs' last meetings in any competition, linked; and related
+  stories from this site's feeds. A match in play is labelled **Live** and fetched from ESPN again every minute
+  while the tab is visible; head-to-head is marked as past results and news with its pipeline time.
 - **My club**: stored in `localStorage`; the home page leads with its position, gaps, form and next or live match,
   and the UI takes its colour as an accent, darkened until it passes WCAG AA.
 - **Player profiles** (`#/player/<espn-id>`): photo when ESPN has one, club, position, shirt number, nationality and

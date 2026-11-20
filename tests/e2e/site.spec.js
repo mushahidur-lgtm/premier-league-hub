@@ -286,7 +286,7 @@ test("club page: matches, position, form, news and squad", async ({ page }) => {
 test("match centre: score, events, stats and line-ups", async ({ page }) => {
   await page.goto(`./#/match/${RECORDED.eventId}`);
   await expect(page).toHaveTitle(/ v .* · Premier League Hub$/);
-  await expect(page.getByRole("heading", { name: "Key events" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Timeline" })).toBeVisible();
   await expect(page.getByRole("table", { name: "Team statistics" })).toBeVisible();
   await expect(page.getByRole("img", { name: /line-up on the pitch/ })).toHaveCount(2);
   await noOverflow(page);
@@ -296,8 +296,69 @@ test("match centre: score, events, stats and line-ups", async ({ page }) => {
   await page.goto("./#/");
   await expect(page).toHaveTitle(/table, fixtures and news/);
   await page.goto(`./#/match/${RECORDED.eventId}`);
-  await expect(page.getByRole("heading", { name: "Key events" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Timeline" })).toBeVisible();
   await expect(page).toHaveTitle(title);
+});
+
+test("match centre: goals by side, timeline detail, head-to-head and related news", async ({ page }) => {
+  await page.goto(`./#/match/${RECORDED.eventId}`);
+  // A finished match says so, and isn't labelled live.
+  await expect(page.getByText("Final: ESPN’s record of the finished match.")).toBeVisible();
+  await expect(page.getByText("Live", { exact: true })).toHaveCount(0);
+  const goals = page.locator("section[aria-labelledby=goals-heading]");
+  await expect(goals.getByRole("heading", { level: 3 })).toHaveCount(2);
+  await expect(goals).toContainText("Goals");
+  await expect(goals).toContainText("Substitutions");
+  // Timeline: key events by default, the whole commentary on request.
+  const timeline = page.locator("section[aria-labelledby=events-heading]");
+  const keyButton = timeline.getByRole("button", { name: "Key events" });
+  await expect(keyButton).toHaveAttribute("aria-pressed", "true");
+  const keyCount = await timeline.getByRole("list", { name: "Key events" }).locator("li").count();
+  await timeline.getByRole("button", { name: /^Full commentary/ }).click();
+  const all = timeline.getByRole("list", { name: "Full commentary" }).locator("li");
+  await expect.poll(() => all.count()).toBeGreaterThan(keyCount);
+  await expect(timeline.getByText(/Shot on target|Corner|Foul/).first()).toBeAttached();
+  // Possession, shots and shots on target compared, numbers stated for screen readers.
+  await expect(
+    page
+      .locator("section[aria-labelledby=stats-heading]")
+      .getByText(/^Possession/)
+      .first(),
+  ).toBeVisible();
+  await expect(page.getByText(/ESPN publishes one formation per team/)).toBeVisible();
+  // Head-to-head: earlier meetings, competition named, linked to their match centre; source and "not live".
+  const h2h = page.locator("section[aria-labelledby=h2h-heading]");
+  await expect(h2h.getByText(/^Last \d+ meetings?:/)).toBeVisible();
+  await expect(h2h.getByRole("link").first()).toHaveAttribute("href", /#\/match\/\d+/);
+  await expect(h2h.getByText(/FA Cup/).first()).toBeVisible();
+  await expect(h2h.getByText(/past results, not live/)).toBeVisible();
+  // Related news from this site's feeds: none in the fixture's 14 days for these clubs, and it says so.
+  const news = page.locator("section[aria-labelledby=news-heading]");
+  await expect(news.getByText(/No stories about these clubs around this match/)).toBeVisible();
+  await expect(news.getByText(/^Source: /)).toBeVisible();
+  await noOverflow(page);
+  await axeClean(page);
+});
+
+test("match centre: a match in play is labelled live and fetched again every minute", async ({ page }) => {
+  const raw = (await import("./fixtures/summary.json", { with: { type: "json" } })).default;
+  const inPlay = structuredClone(raw);
+  const type = inPlay.header.competitions[0].status.type;
+  Object.assign(type, { state: "in", completed: false, name: "STATUS_SECOND_HALF", detail: "60'" });
+  let requests = 0;
+  await page.route(/\/summary\?event=/, (route) => {
+    requests++;
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(inPlay) });
+  });
+  await page.goto(`./#/match/${RECORDED.eventId}`);
+  await expect(page.getByTitle("Live data from ESPN")).toBeVisible();
+  await expect(page.getByText(/fetched from ESPN again every minute while the match is in play/)).toBeVisible();
+  const before = requests;
+  await page.clock.runFor(61_000);
+  await expect.poll(() => requests).toBeGreaterThan(before);
+  // The head-to-head is labelled as past results, not live.
+  await expect(page.getByText(/past results, not live/)).toBeVisible();
+  await axeClean(page);
 });
 
 test("search finds players and keeps the query in the address", async ({ page }) => {
@@ -479,7 +540,7 @@ test("every route survives a reload, content and title", async ({ page }) => {
     [
       `#/match/${RECORDED.eventId}`,
       / v .* · /,
-      () => expect(page.getByRole("heading", { name: "Key events" })).toBeVisible(),
+      () => expect(page.getByRole("heading", { name: "Timeline" })).toBeVisible(),
     ],
     ["#/search?q=arsenal", /^Search: arsenal · /, () => expect(page.getByRole("searchbox")).toHaveValue("arsenal")],
     [

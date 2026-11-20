@@ -82,7 +82,7 @@ test("desktop pages", async ({ page }, info) => {
   await page.screenshot({ path: `${OUT}/stats-progression.png` });
 
   await page.goto(`./#/match/${RECORDED.eventId}`);
-  await page.getByRole("heading", { name: "Key events" }).waitFor();
+  await page.getByRole("heading", { name: "Timeline" }).waitFor();
   await settleFull(page);
   await page.screenshot({ path: `${OUT}/match.png`, fullPage: true });
 

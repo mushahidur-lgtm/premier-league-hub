@@ -701,16 +701,22 @@ FPL investigation (2026-11-20, from the pipeline's user agent):
 ### Phase 11: match centre improvements
 
 - [x] ESPN's match summary checked for what each item needs (below), before building
-- [ ] Timeline: ESPN's commentary (every shot, corner, foul, card, substitution, VAR decision), key events by default
-- [ ] Goals and assists, cards and substitutions by team
-- [ ] Possession, shots and shots on target compared visually (with the full stats table kept)
-- [ ] Formations: as ESPN publishes them, with the limit stated
-- [ ] Head-to-head: last meetings from ESPN, all competitions, competition named
-- [ ] Related news from this site's pipeline (stories tagged with both clubs, else either club around kick-off)
-- [ ] Live data told apart from periodically refreshed data: live summary re-fetched every 30 s while the match
-      is in play (and the tab is visible), labelled "Live"; head-to-head and news labelled with their own source and
-      refresh rate
-- [ ] Unit and e2e tests; README; deploy and live check
+- [x] Timeline: ESPN's commentary (every shot, corner, foul, card, substitution, VAR decision), key events by default
+- [x] Goals and assists, cards and substitutions by team
+- [x] Possession, shots and shots on target compared visually (with the full stats table kept)
+- [x] Formations: as ESPN publishes them, with the limit stated
+- [x] Head-to-head: last meetings from ESPN, all competitions, competition named
+- [x] Related news from this site's pipeline (stories tagged with both clubs, else either club around kick-off)
+- [x] Live data told apart from periodically refreshed data: a match in play shows a "Live" badge and is fetched
+      again every 60 s while the tab is visible (not 30 s: a forced reload reuses ESPN responses for 30 s, so 60 s is
+      what really reaches the network); finished matches say "Final", unstarted ones say when updates begin;
+      head-to-head says "past results, not live", related news shows its pipeline time
+- [x] Unit and e2e tests; README; match screenshot. `CACHE_VERSION` 4 (summary shape changed). Local: 603 unit tests
+      in 32 files (12 new in `match-centre.test.js`), 69 e2e (23 tests × 3 widths; 2 new: sections and toggles on a
+      finished match, and a live match labelled and re-fetched after a minute); lint/typecheck/format clean; main
+      chunk 88 KB gzip, match chunk 6 KB. One unreproduced e2e failure during development (page stuck on "Loading
+      page…" under load); 54 repeated runs and the full suite passed afterwards
+- [ ] Deploy and live check
 
 ESPN summary check (2026-11-20, 6 finished matches, `site.api…/all/summary?event=<id>`, CORS OK, already used):
 
