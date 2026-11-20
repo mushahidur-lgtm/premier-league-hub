@@ -71,6 +71,16 @@ test("desktop pages", async ({ page }, info) => {
   await settleFull(page);
   await page.screenshot({ path: `${OUT}/compare.png`, fullPage: true });
 
+  await page.goto(`./#/stats?club=${RECORDED.club}&metric=possession`);
+  await page.getByRole("img", { name: /^Bar chart/ }).waitFor();
+  await settleFull(page);
+  await page.screenshot({ path: `${OUT}/stats-teams.png`, fullPage: true });
+
+  await page.goto(`./#/stats?view=progression`);
+  await page.getByRole("img", { name: /^Line chart/ }).waitFor();
+  await settle(page);
+  await page.screenshot({ path: `${OUT}/stats-progression.png` });
+
   await page.goto(`./#/match/${RECORDED.eventId}`);
   await page.getByRole("heading", { name: "Key events" }).waitFor();
   await settleFull(page);
@@ -83,6 +93,11 @@ test("mobile home", async ({ page }, info) => {
   await page.locator("section[aria-labelledby=table-heading] tbody tr").first().waitFor();
   await settle(page);
   await page.screenshot({ path: `${OUT}/home-mobile.png` });
+
+  await page.goto(`./#/stats?view=progression`);
+  await page.getByRole("img", { name: /^Line chart/ }).waitFor();
+  await settle(page);
+  await page.locator("figure").screenshot({ path: `${OUT}/progression-mobile.png` });
 });
 
 // 1200×630 card drawn with the site's own fonts and colours; no league logo or wordmark.

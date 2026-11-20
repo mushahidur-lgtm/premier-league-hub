@@ -579,3 +579,41 @@ unmatched players' minutes; `noImplicitAny` (196); deferred majors; v1 open issu
 - Phase 3: the default scoreboard has no `week` field, so home fixtures are grouped by date, not by gameweek.
 - Phase 2: Testing Library can't register its automatic cleanup because Vitest runs without `globals`, so mounted
   hooks leaked between tests. `tests/unit/setup.js` now calls `cleanup()` after each test.
+
+### Phase 9: football analytics
+
+- [x] Sources checked and chosen (below); `data/stats.json` in the pipeline with validation and carry-over
+- [x] Statistics section `#/stats`: team statistics, player statistics, home v away, goals scored and conceded, clean
+      sheets, possession, shots and shots on target, xG (team: ESPN per match; player: FPL), xA (player: FPL; no
+      source has team xA, so none is shown), league position and points progression
+- [x] Filters: season (team statistics, and one player's two seasons), club, player, metric, per match / per 90; all
+      in the query string and surviving a reload; competition stated as Premier League only (not a fake control)
+- [x] Charts: bar chart (one metric across clubs) and line chart (up to four clubs), each with a text summary and
+      a table view; unit and e2e tests
+- [ ] Deploy, CI timing and live check (below)
+
+Phase 9 decisions:
+
+- **Team statistics from ESPN's core API**
+  (`sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/seasons/<year>/types/1/teams/<id>/statistics`, CORS OK)
+  via the pipeline, not the browser: 20 × ~24 KB per season would load on every visit; trimmed to 22 figures per club
+  in `stats.json` (~160 KB with the players, ~25 KB gzipped, loaded only on `#/stats`). Season years come from
+  ESPN (`season.year`), not hard-coded. A 404 for a season = the club wasn't in the league ("absent"). A 0 where 0
+  is impossible over a season (possession, passes, shots, corners, fouls, saves, tackles, interceptions, xG) is
+  stored as null: ESPN reports 2024-25 possession as 0. xG/xGA are ESPN's averages per match, this season only.
+- **One value per figure across the site:** this season's player figures use the same sources as the profile
+  (ESPN squad statistics, FPL minutes); last season's player figures come from ESPN's core API on demand
+  (`athleteSeason:<id>:<year>`, ESPN minutes), labelled so. A 404 there means no Premier League record that season.
+- **Derived from FPL results (this season only):** home/away records and points/position after each gameweek.
+  Order: points, goal difference, goals scored; clubs level on all three share a place (no further tie-break is
+  guessed). A gameweek with some results missing is shown and marked in progress. Unit tests on the recorded
+  fixtures: the derived table after the last gameweek equals ESPN's table, and FPL-derived clean sheets equal
+  ESPN's, for all 20 clubs (also checked live on 2026-11-20).
+- **Charts** (`src/components/charts.jsx`, plain SVG, no library): bars in one hue with the selected club in ink and
+  bold (two cues); lines in the validated order blue, orange, aqua, yellow (`validate_palette.js` on #fafbf8: all
+  checks pass; aqua and yellow are under 3:1, so every line has a direct end label, its own marker shape, a legend
+  and a table view). Each chart has a text summary as its accessible name. Charts take their container's real width
+  (ResizeObserver), so 12–13 px text stays that size on a phone.
+- **Labels** are `<label for>` the control (not wrapping it), so each control's accessible name is exactly its label.
+- **Not built:** previous-season player tables (600 requests) and previous-season progression (needs results per
+  match for clubs no longer in the league); team xA (no source); other competitions (not in this data).

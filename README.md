@@ -12,17 +12,19 @@ Live: **https://mushahidur.gitlab.io/premier-league-hub/** · Source: [GitLab](h
 Taken by Playwright from the production build (`npm run screenshots`) with the recorded e2e fixtures. Club crests are
 live from ESPN's CDN. The injury story in the squad shot is the made-up fixture story the e2e tests use for rule 3.
 
-| League home (desktop)                               | League home (375 px)                                            |
-| --------------------------------------------------- | --------------------------------------------------------------- |
-| ![League home](docs/screenshots/home.png)           | ![League home on a phone](docs/screenshots/home-mobile.png)     |
-| **Club page**                                       | **Squad: a "reported injured" note from the news**              |
-| ![Club page](docs/screenshots/club.png)             | ![Squad with an injury note](docs/screenshots/squad-injury.png) |
-| **Transfers and contracts (home)**                  | **Match centre**                                                |
-| ![Transfer feed](docs/screenshots/transfers.png)    | ![Match centre](docs/screenshots/match.png)                     |
-| **Fixtures by gameweek, with filters**              | **Top scorers and assists**                                     |
-| ![Gameweek fixtures](docs/screenshots/gameweek.png) | ![Leaders](docs/screenshots/leaders.png)                        |
-| **Player profile**                                  | **Compare two players**                                         |
-| ![Player profile](docs/screenshots/player.png)      | ![Player comparison](docs/screenshots/compare.png)              |
+| League home (desktop)                                | League home (375 px)                                            |
+| ---------------------------------------------------- | --------------------------------------------------------------- |
+| ![League home](docs/screenshots/home.png)            | ![League home on a phone](docs/screenshots/home-mobile.png)     |
+| **Club page**                                        | **Squad: a "reported injured" note from the news**              |
+| ![Club page](docs/screenshots/club.png)              | ![Squad with an injury note](docs/screenshots/squad-injury.png) |
+| **Transfers and contracts (home)**                   | **Match centre**                                                |
+| ![Transfer feed](docs/screenshots/transfers.png)     | ![Match centre](docs/screenshots/match.png)                     |
+| **Fixtures by gameweek, with filters**               | **Top scorers and assists**                                     |
+| ![Gameweek fixtures](docs/screenshots/gameweek.png)  | ![Leaders](docs/screenshots/leaders.png)                        |
+| **Player profile**                                   | **Compare two players**                                         |
+| ![Player profile](docs/screenshots/player.png)       | ![Player comparison](docs/screenshots/compare.png)              |
+| **Statistics: teams**                                | **Statistics: position by gameweek**                            |
+| ![Team statistics](docs/screenshots/stats-teams.png) | ![Position by gameweek](docs/screenshots/stats-progression.png) |
 
 ## What's on it
 
@@ -43,6 +45,13 @@ live from ESPN's CDN. The injury story in the squad shot is the made-up fixture 
   and search.
 - **Compare players** (`#/compare?a=<id>&b=<id>`): any two players in the current squads, same season and source,
   side by side, with the better figure in bold.
+- **Statistics** (`#/stats`), Premier League only, every filter kept in the address:
+  - _Teams_: any of 17 season statistics (goals, possession, shots, xG and xGA per match, pass accuracy, clean sheets,
+    cards…) across the clubs as a bar chart with a table view, per match or season total, this season or last;
+    a club's detail with its rank on each and its home and away records.
+  - _Players_: this season's leaders for goals, assists, FPL expected goals and assists, shots, minutes and more,
+    per 90 optional, by club; one player's this season and last side by side.
+  - _Points and position_: each club's place or points after every gameweek, up to four clubs at once.
 - **Search** (`#/search?q=`) across clubs, players (all 20 squads) and stories.
 
 ## Commands
@@ -85,6 +94,12 @@ de-duplicates, tags each story with clubs and players, and writes three same-ori
 - `data/meta.json`: `generatedAt`, `durationMs`, `counts` (`feeds`, `feedsOk`, `rawItems`, `items`, `rostersOk`,
   `players`, `itemsWithPlayers`), and per-source status lists `feeds[]` (`club`, `outlet`, `url`, `ok`, `status`,
   `items`, `error`, `ms`) and `rosters[]` (`club`, `ok`, `players`, `error`), plus a `league` summary.
+- `data/stats.json` (read only by the Statistics page): ESPN's season team statistics for this season and last, from
+  ESPN's core API (one small request per club and season, trimmed to the 22 figures shown), and this season's
+  player figures from the squads with FPL minutes, expected goals and expected assists. A club that wasn't in the
+  league that season is `absent`; a figure ESPN doesn't record, or reports as 0 where 0 is impossible over a season
+  (possession, passes, shots…), is `null`. Parts carry over from the live file or are listed as missing, like
+  league.json.
 - `data/league.json`: gameweeks 1–38 and all 380 fixtures from the official **Fantasy Premier League** data (the only
   source of gameweek numbers; it has no CORS, so only the pipeline can read it), each club's last five league results
   derived from FPL's finished fixtures, and the goals and assists leaders from ESPN (top ten plus ties). Each part has
@@ -161,6 +176,12 @@ the real use is lower: 183 budgeted scheduled minutes plus, say, 30 pushes × 2 
   list is described as "ESPN lists no injuries or suspensions. Its list can lag club news."
 - **Transfers** are a simplified feed: "Confirmed" only for completion wording from a reliable outlet with no hedge,
   otherwise "Reported". Manager news, finances, fan pieces, live blogs and newsletters are left out.
+- **Statistics are checked against each other and labelled by source.** Points and position after each gameweek
+  are derived from FPL's results (points, goal difference, goals scored; clubs level on all three share a place,
+  no tie-break is guessed); the derived table and the derived clean sheets are unit-tested to equal ESPN's for all
+  20 clubs. Team xG is ESPN's average per match; player xG and xA are FPL's. Progression, home/away records and the
+  player tables cover this season only; team statistics also cover last season. Charts are plain SVG drawn at
+  their container's real width, with a validated four-colour order, marker shapes, direct labels and a table view.
 - **Player figures never show a gap as 0.** Season totals come from ESPN's squad statistics (one source and season
   for every player, so comparisons are like for like), the match log from ESPN's game log, minutes from FPL. A
   figure the source doesn't give is "–" with "not available" for screen readers; per-90 figures are derived and
