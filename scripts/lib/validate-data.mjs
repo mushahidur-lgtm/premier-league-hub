@@ -203,3 +203,58 @@ export function validateLeague(league, { clubSlugs }) {
   need("minutes", minutesOk, "minutes malformed");
   return p;
 }
+
+const STAT_PARTS = new Set(["current", "previous", "players"]);
+const TEAM_STATUS = new Set(["ok", "absent", "unavailable"]);
+const numOrNull = (/** @type {unknown} */ v) => v === null || (typeof v === "number" && Number.isFinite(v));
+
+/**
+ * Problems with a stats.json object; [] when it is fine.
+ * @param {any} stats
+ * @param {{ clubSlugs: Set<string> }} ctx
+ * @returns {string[]}
+ */
+export function validateStats(stats, { clubSlugs }) {
+  const p = [];
+  if (!isObj(stats)) return ["stats.json is not an object"];
+  if (!isIso(stats.generatedAt)) p.push("generatedAt is not a date");
+  if (!Array.isArray(stats.missing) || stats.missing.some((/** @type {any} */ m) => !STAT_PARTS.has(m)))
+    p.push("missing is not a list of parts");
+  if (!Array.isArray(stats.carriedOver)) p.push("carriedOver is not a list");
+  if (!isObj(stats.asOf)) p.push("asOf missing");
+  const missing = new Set(Array.isArray(stats.missing) ? stats.missing : []);
+  if (!Array.isArray(stats.seasons)) return [...p, "seasons is not a list"];
+  for (const s of stats.seasons) {
+    if (!isObj(s) || !STAT_PARTS.has(s.part) || !Number.isInteger(s.year) || typeof s.label !== "string") {
+      p.push("season malformed");
+      continue;
+    }
+    if (missing.has(s.part)) continue;
+    if (!isIso(stats.asOf?.[s.part])) p.push(`asOf.${s.part} is not a date`);
+    const ok =
+      isObj(s.teams) &&
+      Object.entries(s.teams).every(
+        ([slug, t]) =>
+          clubSlugs.has(slug) &&
+          isObj(t) &&
+          TEAM_STATUS.has(t.status) &&
+          (t.status !== "ok" || (isObj(t.stats) && Object.values(t.stats).every(numOrNull))),
+      );
+    if (!ok) p.push(`${s.part} teams malformed`);
+  }
+  if (!missing.has("players")) {
+    if (!isIso(stats.asOf?.players)) p.push("asOf.players is not a date");
+    const ok =
+      Array.isArray(stats.players) &&
+      stats.players.every(
+        (/** @type {any} */ x) =>
+          isObj(x) &&
+          /^\d+$/.test(x.id) &&
+          typeof x.name === "string" &&
+          clubSlugs.has(x.club) &&
+          ["apps", "goals", "assists", "minutes", "xg", "xa"].every((k) => numOrNull(x[k])),
+      );
+    if (!ok) p.push("players malformed");
+  }
+  return p;
+}

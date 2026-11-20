@@ -16,8 +16,16 @@ import { CLUBS, LEAGUE_FEEDS, OUTLETS } from "../src/config/clubs.js";
 import { parseFeed } from "./lib/feed-parser.mjs";
 import { buildNews } from "./lib/news.mjs";
 import { rosterPlayers } from "./lib/players.mjs";
-import { describeError, runHealth, validateLeague, validateMeta, validateNews } from "./lib/validate-data.mjs";
+import {
+  describeError,
+  runHealth,
+  validateLeague,
+  validateMeta,
+  validateNews,
+  validateStats,
+} from "./lib/validate-data.mjs";
 import { buildLeague, carryOver } from "./lib/league.mjs";
+import { buildStats, carryOverStats, rosterStats, withFpl } from "./lib/stats.mjs";
 import { SITE_URL } from "../src/config/site.js";
 
 const OUT_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "data");
@@ -28,6 +36,9 @@ const USER_AGENT = "premier-league-hub/1.0 (unofficial fan site; news pipeline)"
 const FPL_BOOTSTRAP = "https://fantasy.premierleague.com/api/bootstrap-static/";
 const FPL_FIXTURES = "https://fantasy.premierleague.com/api/fixtures/";
 const ESPN_STATS = "https://site.web.api.espn.com/apis/site/v2/sports/soccer/eng.1/statistics";
+// Season team statistics (ESPN core API; one small JSON per club and season).
+const teamStatsUrl = (/** @type {number} */ year, /** @type {string} */ espnId) =>
+  `https://sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/seasons/${year}/types/1/teams/${espnId}/statistics`;
 const FEED_ACCEPT = "application/rss+xml, application/atom+xml, application/xml;q=0.9";
 // Squads for player tagging: the roster endpoint, never bare /teams/:id (rule 1).
 const rosterUrl = (/** @type {string} */ espnId) =>
@@ -85,10 +96,11 @@ async function main() {
     CLUBS.map((c) => async () => {
       try {
         const { text } = await fetchText(rosterUrl(c.espnId), "application/json");
-        const players = rosterPlayers(JSON.parse(text), c.slug);
-        return { club: c.slug, ok: players.length > 0, players, error: players.length ? null : "No players" };
+        const raw = JSON.parse(text);
+        const players = rosterPlayers(raw, c.slug);
+        return { club: c.slug, ok: players.length > 0, players, raw, error: players.length ? null : "No players" };
       } catch (err) {
-        return { club: c.slug, ok: false, players: [], error: describeError(err, TIMEOUT_MS) };
+        return { club: c.slug, ok: false, players: [], raw: null, error: describeError(err, TIMEOUT_MS) };
       }
     }),
     CONCURRENCY,
@@ -102,6 +114,12 @@ async function main() {
     now,
     rosters.flatMap((r) => r.players),
   );
+  const stats = await statsData(now, {
+    year: league.year,
+    rosters,
+    minutes: league.file?.minutes ?? null,
+    bootstrap: league.bootstrap,
+  });
   const items = buildNews(
     results.map((r) => ({ items: r.items, club: r.feed.club })),
     CLUBS,
@@ -138,6 +156,14 @@ async function main() {
       itemsWithPlayers: items.filter((i) => i.players.length).length,
     },
     rosters: rosters.map((r) => ({ club: r.club, ok: r.ok, players: r.players.length, error: r.error })),
+    stats: stats.file
+      ? {
+          missing: stats.file.missing,
+          carriedOver: stats.file.carriedOver,
+          asOf: stats.file.asOf,
+          problems: stats.problems,
+        }
+      : { missing: ["current", "previous", "players"], carriedOver: [], asOf: null, problems: stats.problems },
     league: league.file
       ? {
           missing: league.file.missing,
@@ -170,6 +196,11 @@ async function main() {
   await writeFile(join(OUT_DIR, "news.json"), JSON.stringify(news));
   await writeFile(join(OUT_DIR, "meta.json"), JSON.stringify(meta, null, 2));
   if (league.file) await writeFile(join(OUT_DIR, "league.json"), JSON.stringify(league.file));
+  if (stats.file) await writeFile(join(OUT_DIR, "stats.json"), JSON.stringify(stats.file));
+  console.log(
+    `stats.json: ${stats.file ? `missing [${stats.file.missing}], carried over [${stats.file.carriedOver}]` : "not written"}` +
+      `${stats.problems.length ? `; ${stats.problems.join("; ")}` : ""}`,
+  );
   console.log(
     `league.json: ${league.file ? `missing [${league.file.missing}], carried over [${league.file.carriedOver}]` : "not written"}` +
       `${league.problems.length ? `; ${league.problems.join("; ")}` : ""}`,
@@ -200,7 +231,7 @@ async function fetchJson(url) {
  * that copy's date, or left out and listed in `missing`.
  * @param {Date} now
  * @param {any[]} squads ESPN squad players, for FPL minutes
- * @returns {Promise<{ file: any, problems: string[] }>}
+ * @returns {Promise<{ file: any, problems: string[], bootstrap: any, year: number | null }>}
  */
 async function leagueData(now, squads) {
   /** @type {string[]} */
@@ -233,8 +264,61 @@ async function leagueData(now, squads) {
     const previous = await tryJson("previous league.json", `${SITE_URL}data/league.json`);
     if (previous && !validateLeague(previous, { clubSlugs: slugs }).length) file = carryOver(file, previous);
   }
-  if (validateLeague(file, { clubSlugs: slugs }).length) return { file: null, problems };
-  return { file, problems };
+  const year = Number.isInteger(stats?.season?.year) ? stats.season.year : null;
+  if (validateLeague(file, { clubSlugs: slugs }).length) return { file: null, problems, bootstrap, year };
+  return { file, problems, bootstrap, year };
+}
+
+/** The season year ESPN uses ("2026" for 2026-27), from the date when ESPN didn't say: seasons start in August. */
+const yearFromDate = (/** @type {Date} */ d) => (d.getUTCMonth() >= 6 ? d.getUTCFullYear() : d.getUTCFullYear() - 1);
+
+/**
+ * stats.json: ESPN team statistics for this season and the last (one small request per club and season),
+ * and this season's player figures from the squads already fetched, with FPL minutes, xG and xA. Like
+ * league.json, a failed part is carried over from the live file or listed as missing; never blocks the deploy.
+ * @param {Date} now
+ * @param {{ year: number | null, rosters: { club: string, raw: any }[], minutes: any, bootstrap: any }} input
+ */
+async function statsData(now, { year, rosters, minutes, bootstrap }) {
+  /** @type {string[]} */
+  const problems = [];
+  const current = year ?? yearFromDate(now);
+  if (year == null) problems.push(`season year taken from the date (${current}): ESPN statistics unavailable`);
+  const years = [current, current - 1];
+  /** @type {Record<number, Record<string, any>>} */
+  const teams = Object.fromEntries(years.map((y) => [y, {}]));
+  await pool(
+    years.flatMap((y) =>
+      CLUBS.map((c) => async () => {
+        try {
+          teams[y][c.slug] = await fetchJson(teamStatsUrl(y, c.espnId));
+        } catch (err) {
+          teams[y][c.slug] = /** @type {any} */ (err)?.status === 404 ? "absent" : "error";
+        }
+      }),
+    ),
+    CONCURRENCY,
+  );
+  const squads = rosters.filter((r) => r.raw).flatMap((r) => rosterStats(r.raw, r.club));
+  const players = squads.length ? withFpl(squads, minutes, bootstrap) : null;
+  const built = buildStats({ now, years, teams, players });
+  problems.push(...built.problems);
+  let file = built.stats;
+  const slugs = { clubSlugs: new Set(CLUBS.map((c) => c.slug)) };
+  const invalid = validateStats(file, slugs);
+  if (invalid.length) {
+    problems.push(`stats.json failed validation: ${invalid.slice(0, 5).join("; ")}`);
+    return { file: null, problems };
+  }
+  if (file.missing.length) {
+    try {
+      const previous = await fetchJson(`${SITE_URL}data/stats.json`);
+      if (!validateStats(previous, slugs).length) file = carryOverStats(file, previous);
+    } catch (err) {
+      problems.push(`previous stats.json: ${describeError(err, TIMEOUT_MS)}`);
+    }
+  }
+  return { file: validateStats(file, slugs).length ? null : file, problems };
 }
 
 /**
