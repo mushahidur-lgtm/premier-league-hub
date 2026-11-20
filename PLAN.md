@@ -482,7 +482,12 @@ a day so far).
       nationality, age; appearances, goals, assists, minutes, cards and more; recent performances; availability
 - [x] Comparison tool `#/compare?a=&b=`: two players, same season and competition, unavailable distinct from zero
 - [x] Linked from squad lists, leaders and player search; e2e and unit tests
-- [ ] Deploy and live check (below)
+- [x] Deploy and live check: pipelines 3092100701 and 3092106942 (`test` 59–67 s + `pages` 31 s); `pages` log
+      "56 of 603 squad players have no FPL match (minutes unknown)", "status: ok; output valid"; live league.json has
+      547 minutes entries. Browser: Haaland's profile (bio, 10 appearances, 889 FPL minutes, 0.91 goals per 90, ten
+      matches), a goalkeeper reached from the Arsenal squad list (saves and conceded instead of attacking figures; his
+      minutes "–" because FPL has no match for him), Haaland v Isak comparison with 13 rows; no error sections, no
+      console errors. Local: 541 unit tests in 28 files, 39 e2e (13 tests × 3 widths), lint/typecheck/audit clean.
 - [x] Found in the live check: a browser that had saved league.json 11 minutes before the deploy kept showing
       minutes as "–" (its copy was inside the 15-minute fresh window, so no request). `CACHE_VERSION` 2 → 3; CLAUDE.md
       now says to bump it whenever a pipeline file gains a field the UI reads.
@@ -511,6 +516,13 @@ Phase 8 decisions:
   Profiles and comparison are lazy chunks (3.2 KB and 2.3 KB gzip); main chunk 82 KB gzip (was 79 KB).
 - **E2E fixtures:** `athlete.json` and `gamelog.json` for one recorded squad player (only the fields the parsers
   read, no links); `recorded.json` gains `playerId` and `otherPlayerId`.
+
+Phase 8 outcome: done. Next recommended: **Phase 9 (football analytics)**: a Statistics section. Checked so far: ESPN
+squad statistics (per player, this season), ESPN game logs (per match), FPL fixtures (all results, so home/away,
+goals for and against, clean sheets and points/position progression can be derived from scores), FPL
+`expected_goals`/`expected_assists` per player (FPL's numbers; label them). Not yet checked: ESPN team statistics
+per season (possession, shots per team) — verify an endpoint before promising possession. Outstanding: the 56
+unmatched players' minutes; `noImplicitAny` (196); deferred majors; v1 open issues 3–10.
 
 ## Decisions
 
