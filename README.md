@@ -53,8 +53,11 @@ Before every commit: `npm run lint && npm run typecheck && npm test && npm run b
 
 **Live from the browser:** ESPN's `site.api.espn.com` standings, scoreboard, club schedules, rosters and match
 summaries, which all send CORS headers. Requests for the same data are shared, answers are memoised for 30 s, and the
-last good copy of each source is kept in `localStorage`, so a failed refresh shows the saved copy marked as stale
-rather than an empty page.
+last good copy of each source is kept in `localStorage` (versioned, pruned, with a maximum age per kind from one day
+for the scoreboard to 14 days for a match summary). A failed refresh, or an empty table, squad or news answer, shows
+the saved copy marked as stale rather than an empty page. Slow-moving data is stale-while-revalidate: a saved table
+under 5 minutes old, news under 15 minutes or a squad under 30 minutes is shown as current with no request; scores,
+schedules and match pages are always refetched. Refresh and the 10-minute auto-refresh always fetch.
 
 **From the pipeline:** `scripts/fetch-data.mjs` (Node 22, no dependencies) fetches each club's BBC Sport, Guardian and
 Sky Sports feeds plus three league-wide feeds (57 in all) and the 20 ESPN squads. It parses RSS and Atom,

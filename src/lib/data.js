@@ -89,8 +89,9 @@ export const kindOf = (key) => key.split(":")[0];
 /* ────────────────────────────── Loaders ────────────────────────────── */
 
 /**
- * @typedef {{ data: any, warnings?: string[] }} LoadResult
- * Each loader returns a LoadResult or throws (a FetchError) if nothing usable came back.
+ * @typedef {{ data: any, warnings?: string[], partial?: boolean }} LoadResult
+ * Each loader returns a LoadResult or throws (a FetchError) if nothing usable came back. `partial` marks a
+ * fallback answer (shown, but never saved over a complete copy).
  */
 
 export const LOADERS = {
@@ -103,6 +104,7 @@ export const LOADERS = {
       return {
         data: parseSchedules(await pair(URLS.schedule(espnId, "league")), espnId),
         warnings: ["Showing Premier League matches only"],
+        partial: true,
       };
     }
   },
@@ -165,26 +167,52 @@ export function loaderFor(key) {
 
 /* ────────────────────────────── Persistent cache ────────────────────────────── */
 
-const CACHE_KEY = "plh-cache-v1";
+/**
+ * Version of what is saved. Bump it by hand when a parser's output shape changes, so copies saved by older
+ * code are dropped instead of reaching new components. (Not a build hash: that would wipe every visitor's
+ * last good copy on each deploy.) Older `plh-cache-v*` keys are removed on the next write.
+ */
+export const CACHE_VERSION = 2;
+export const CACHE_KEY = `plh-cache-v${CACHE_VERSION}`;
+const ANY_CACHE_VERSION = /^plh-cache-v\d+$/;
+
+const MIN = 60e3;
+const DAY = 86400e3;
 
 /**
- * Settings for the last-good-copy cache in localStorage.
+ * Settings for the last-good-copy cache in localStorage, by full key or by kind, with a "default".
  *   maxBytes   serialised size cap; the oldest-saved sources are evicted to stay under it
- *   maxAgeMs   how long a saved source may still be shown, by full key or by kind, with a "default"
- * @type {{ maxBytes: number, maxAgeMs: Record<string, number> }}
+ *   maxAgeMs   how long a saved copy may still be shown (as stale); older copies are dropped
+ *   freshMs    how long a saved copy counts as current: shown as not stale, and not refetched on mount
+ *              (stale-while-revalidate after that). 0 for anything live: scores, schedules, match pages.
+ *              The Refresh button and the 10-minute auto-refresh always fetch.
+ * @type {{ maxBytes: number, maxAgeMs: Record<string, number>, freshMs: Record<string, number> }}
  */
 export const cacheConfig = {
   maxBytes: 2_000_000,
-  maxAgeMs: { default: 3 * 86400e3 },
+  maxAgeMs: {
+    default: 3 * DAY,
+    scoreboard: 1 * DAY, // a day-old scoreboard is still worth showing, marked stale, while offline
+    standings: 2 * DAY,
+    news: 2 * DAY,
+    schedule: 3 * DAY,
+    roster: 7 * DAY, // squads change slowly
+    summary: 14 * DAY, // a finished match's summary doesn't change
+  },
+  freshMs: { default: 0, standings: 5 * MIN, news: 15 * MIN, roster: 30 * MIN },
 };
 
-/** @param {{ maxBytes?: number, maxAgeMs?: Record<string, number> }} [partial] */
+/** @param {{ maxBytes?: number, maxAgeMs?: Record<string, number>, freshMs?: Record<string, number> }} [partial] */
 export function configureCache(partial = {}) {
   if (partial.maxBytes != null) cacheConfig.maxBytes = partial.maxBytes;
   if (partial.maxAgeMs) Object.assign(cacheConfig.maxAgeMs, partial.maxAgeMs);
+  if (partial.freshMs) Object.assign(cacheConfig.freshMs, partial.freshMs);
 }
-const maxAgeOf = (/** @type {string} */ key) =>
-  cacheConfig.maxAgeMs[key] ?? cacheConfig.maxAgeMs[kindOf(key)] ?? cacheConfig.maxAgeMs.default;
+/** @param {Record<string, number>} table @param {string} key */
+const setting = (table, key) => table[key] ?? table[kindOf(key)] ?? table.default;
+const maxAgeOf = (/** @type {string} */ key) => setting(cacheConfig.maxAgeMs, key);
+/** Is a copy saved at `savedAt` still current for this key? @param {string} key @param {Date} savedAt */
+export const isFresh = (key, savedAt, now = Date.now()) => now - savedAt.getTime() < setting(cacheConfig.freshMs, key);
 
 const DATE_KEYS = new Set(["date", "updated", "savedAt", "dob", "generatedAt"]);
 const revive = (/** @type {string} */ k, /** @type {unknown} */ v) =>
@@ -230,38 +258,71 @@ function parsedCache() {
 }
 
 /**
- * Saved sources that are still within their maximum age and well-formed: { [key]: { data, savedAt } }.
- * @returns {Record<string, { data: any, savedAt: Date }>}
+ * @typedef {{ data: any, savedAt: Date, partial?: boolean }} CacheEntry
  */
-export function readCache(now = Date.now()) {
+
+/**
+ * One saved source if it is within its maximum age and well-formed, else null. Checks only that key, so a
+ * component mounting one source doesn't sanitise every other saved source.
+ * @param {string} key
+ * @returns {CacheEntry | null}
+ */
+export function readCacheEntry(key, now = Date.now()) {
   try {
-    const parsed = parsedCache();
-    /** @type {Record<string, { data: any, savedAt: Date }>} */
-    const out = {};
-    for (const [key, v] of Object.entries(isObj(parsed) ? parsed : {})) {
-      if (!validDate(v?.savedAt)) continue;
-      if (now - v.savedAt.getTime() >= maxAgeOf(key)) {
-        persistentStats.expired++;
-        continue;
-      }
-      const check = CACHE_CHECKS[kindOf(key)];
-      const data = check ? check(v.data) : v.data;
-      if (data != null) out[key] = { ...v, data };
+    const v = parsedCache()[key];
+    if (!v || !validDate(v.savedAt)) return null;
+    if (now - v.savedAt.getTime() >= maxAgeOf(key)) {
+      persistentStats.expired++;
+      return null;
     }
-    return out;
+    const check = CACHE_CHECKS[kindOf(key)];
+    const data = check ? check(v.data) : v.data;
+    return data == null ? null : { ...v, data };
   } catch {
-    return {};
+    return null;
   }
 }
 
 /**
- * Saves one source. If the whole cache would exceed `maxBytes`, or the browser refuses the write
- * (quota), the oldest-saved *other* sources are evicted first. Returns whether the write happened.
+ * Every saved source that is still within its maximum age and well-formed: { [key]: { data, savedAt } }.
+ * @returns {Record<string, CacheEntry>}
+ */
+export function readCache(now = Date.now()) {
+  /** @type {Record<string, CacheEntry>} */
+  const out = {};
+  let keys = [];
+  try {
+    keys = Object.keys(parsedCache());
+  } catch {
+    return out;
+  }
+  for (const key of keys) {
+    const entry = readCacheEntry(key, now);
+    if (entry) out[key] = entry;
+  }
+  return out;
+}
+
+/** Removes saved copies written by other cache versions. */
+function dropOtherVersions() {
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k && k !== CACHE_KEY && ANY_CACHE_VERSION.test(k)) localStorage.removeItem(k);
+  }
+}
+
+/**
+ * Saves one source. Expired copies of other sources are pruned first; then, if the whole cache would exceed
+ * `maxBytes`, or the browser refuses the write (quota), the oldest-saved *other* sources are evicted.
+ * Returns whether the write happened.
  * @param {string} key
  * @param {unknown} data
+ * @param {Date} [savedAt]
+ * @param {{ partial?: boolean }} [opts]
  */
-export function writeCache(key, data, savedAt = new Date()) {
+export function writeCache(key, data, savedAt = new Date(), { partial = false } = {}) {
   try {
+    dropOtherVersions();
     /** @type {Record<string, any>} */
     let all;
     try {
@@ -269,7 +330,15 @@ export function writeCache(key, data, savedAt = new Date()) {
     } catch {
       all = {}; // unreadable blob: start again
     }
-    all[key] = { data, savedAt };
+    const now = savedAt.getTime(); // the moment of this write
+    for (const [k, v] of Object.entries(all)) {
+      const t = new Date(v?.savedAt ?? 0).getTime();
+      if (k !== key && !(now - t < maxAgeOf(k))) {
+        delete all[k];
+        persistentStats.expired++;
+      }
+    }
+    all[key] = partial ? { data, savedAt, partial: true } : { data, savedAt };
     const oldestOther = () =>
       Object.entries(all)
         .filter(([k]) => k !== key)
@@ -311,7 +380,10 @@ if (typeof window !== "undefined") /** @type {any} */ (window).plhDiagnostics = 
 
 /* ────────────────────────────── Shared loading ────────────────────────────── */
 
-/** @type {Map<string, { token: number, promise: Promise<LoadResult & { savedAt: Date }> }>} */
+/** Kinds whose real answer is never empty. */
+const NEVER_EMPTY = new Set(["standings", "roster", "news"]);
+
+/** @type {Map<string, { token: number, promise: Promise<LoadResult & { savedAt: Date, fromCache?: boolean }> }>} */
 const flights = new Map();
 /** @type {Map<string, number>} */
 const newest = new Map();
@@ -332,9 +404,22 @@ export function loadSource(key, { force = false, loader } = {}) {
   const token = ++tokens;
   newest.set(key, token);
   const promise = (async () => {
-    const { data, warnings = [] } = await load();
+    const { data, warnings = [], partial = false } = await load();
     const savedAt = new Date();
-    if (newest.get(key) === token) writeCache(key, data, savedAt);
+    if (newest.get(key) !== token) return { data, warnings, savedAt };
+    const saved = readCacheEntry(key);
+    // A table, squad or news file is never really empty: an empty answer is a provider fault, so keep
+    // showing (and keep) the last good copy rather than replacing it.
+    if (saved && NEVER_EMPTY.has(kindOf(key)) && isEmptyData(data) && !isEmptyData(saved.data)) {
+      return {
+        data: saved.data,
+        warnings: [...warnings, "The provider returned no data; showing the last good copy"],
+        savedAt: saved.savedAt,
+        fromCache: true,
+      };
+    }
+    // A fallback answer is shown, but never saved over a complete copy.
+    if (!(partial && saved && !saved.partial)) writeCache(key, data, savedAt, { partial });
     return { data, warnings, savedAt };
   })().finally(() => {
     if (flights.get(key)?.token === token) flights.delete(key);
@@ -378,16 +463,18 @@ export function isEmptyData(data) {
 
 /** @param {string | null} key */
 function initial(key) {
-  const cached = key ? readCache()[key] : undefined;
+  const cached = key ? readCacheEntry(key) : null;
   if (key) cached ? persistentStats.hits++ : persistentStats.misses++;
+  const current = cached != null && key != null && isFresh(key, cached.savedAt);
   return {
     key,
-    status: /** @type {SourceStatus} */ (key ? (cached ? "refreshing" : "loading") : "idle"),
+    status: /** @type {SourceStatus} */ (key ? (current ? "ok" : cached ? "refreshing" : "loading") : "idle"),
     data: cached?.data ?? null,
     error: /** @type {string | null} */ (null),
     warnings: /** @type {string[]} */ ([]),
     savedAt: cached?.savedAt ?? null,
-    fresh: false, // data arrived from the network while this component was mounted
+    // The data is current: it arrived from the network while mounted, or is a saved copy inside its fresh window.
+    fresh: current,
   };
 }
 
@@ -416,6 +503,15 @@ export function useSource(key, { isEmpty = isEmptyData } = {}) {
     async (force = false) => {
       if (!key) return false;
       const id = ++request.current;
+      if (!force) {
+        // Stale-while-revalidate: a saved copy inside its fresh window is used as is, with no request.
+        const saved = readCacheEntry(key);
+        if (saved && isFresh(key, saved.savedAt)) {
+          const { data, savedAt } = saved;
+          setState((s) => (s.key === key ? { ...s, status: "ok", data, savedAt, error: null, fresh: true } : s));
+          return true;
+        }
+      }
       setState((s) => (s.key === key ? { ...s, status: s.data != null ? "refreshing" : "loading", error: null } : s));
       try {
         const r = await loadSource(key, { force });
@@ -427,7 +523,7 @@ export function useSource(key, { isEmpty = isEmptyData } = {}) {
           error: null,
           warnings: r.warnings ?? [],
           savedAt: r.savedAt,
-          fresh: true,
+          fresh: !r.fromCache,
         });
         return true;
       } catch (err) {

@@ -349,3 +349,79 @@ describe("isEmptyData", () => {
     [{ lineups: [] }, false], // unknown shapes are not assumed empty
   ])("%j → %s", (data, empty) => expect(isEmptyData(data)).toBe(empty));
 });
+
+describe("cache policy: fresh windows, empty answers and fallbacks", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const table = { rows: [{ id: "1", rank: 1 }] };
+  const minutesAgo = (m) => new Date(Date.now() - m * 60e3);
+
+  it("a saved table inside its fresh window is shown as current, with no request", async () => {
+    writeCache("standings", table, minutesAgo(1));
+    const f = vi.fn();
+    vi.stubGlobal("fetch", f);
+    const { result } = renderHook(() => useSource("standings"));
+    expect(result.current).toMatchObject({ status: "ok", stale: false, data: table });
+    await act(async () => {});
+    expect(f).not.toHaveBeenCalled();
+  });
+
+  it("Refresh still fetches a fresh-window copy", async () => {
+    writeCache("standings", table, minutesAgo(1));
+    const f = vi.fn(async () => ok({ children: [{ standings: { entries: [{ team: { id: 7 }, stats: [] }] } }] }));
+    vi.stubGlobal("fetch", f);
+    const { result } = renderHook(() => useSource("standings"));
+    await act(async () => refreshAll());
+    await waitFor(() => expect(result.current.data.rows[0].id).toBe("7"));
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it("live data is refetched on mount even when saved seconds ago", async () => {
+    writeCache("schedule:359", { results: [], fixtures: [] }, minutesAgo(0.1));
+    const f = vi.fn(async () => ok({ events: [] }));
+    vi.stubGlobal("fetch", f);
+    const { result } = renderHook(() => useSource("schedule:359"));
+    expect(result.current.stale).toBe(true);
+    await waitFor(() => expect(f).toHaveBeenCalled());
+  });
+
+  it("an empty table from the provider keeps (and keeps showing) the last good copy, marked stale", async () => {
+    writeCache("standings", table, minutesAgo(60));
+    const r = await loadSource("standings", { loader: async () => ({ data: { rows: [] } }) });
+    expect(r).toMatchObject({ data: table, fromCache: true });
+    expect(r.warnings.join()).toMatch(/last good copy/);
+    expect(readCache().standings.data).toEqual(table);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ok({ children: [{ standings: { entries: [] } }] })),
+    );
+    resetNetState();
+    const { result } = renderHook(() => useSource("standings"));
+    await waitFor(() => expect(result.current.status).toBe("ok"));
+    expect(result.current).toMatchObject({ data: table, stale: true });
+  });
+
+  it("an empty fixture list is a real answer and is saved", async () => {
+    writeCache("scoreboard", { results: [{ id: "a" }], fixtures: [] }, minutesAgo(60));
+    await loadSource("scoreboard", { loader: async () => ({ data: { results: [], fixtures: [] } }) });
+    expect(readCache().scoreboard.data).toEqual({ results: [], fixtures: [] });
+  });
+
+  it("a fallback (league-only) schedule is shown but never saved over a complete copy", async () => {
+    const full = { results: [], fixtures: [{ id: "cup", date: new Date() }] };
+    writeCache("schedule:359", full, minutesAgo(60));
+    const partial = { results: [], fixtures: [] };
+    const r = await loadSource("schedule:359", { loader: async () => ({ data: partial, partial: true }) });
+    expect(r.data).toEqual(partial);
+    expect(readCache()["schedule:359"].data.fixtures.map((m) => m.id)).toEqual(["cup"]);
+  });
+
+  it("a fallback schedule is saved when there is no complete copy to protect", async () => {
+    const partial = { results: [], fixtures: [{ id: "lg", date: new Date() }] };
+    await loadSource("schedule:359", { loader: async () => ({ data: partial, partial: true }) });
+    expect(readCache()["schedule:359"]).toMatchObject({ partial: true });
+    const full = { results: [], fixtures: [{ id: "all", date: new Date() }] };
+    await loadSource("schedule:359", { loader: async () => ({ data: full }), force: true });
+    expect(readCache()["schedule:359"].partial).toBeUndefined();
+  });
+});

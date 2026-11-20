@@ -385,7 +385,12 @@ tested and documented.
 - [x] 6.1 `npm run typecheck` (TypeScript over the `// @ts-check` files), errors fixed, in CI: TypeScript 5.9 over 32
       files with `strictNullChecks` (13 errors fixed, no `@ts-expect-error`); `noImplicitAny` would add 196 (next
       increment); `ts-check-scope.test.js` keeps every `src/lib`, `src/config` and `scripts` file in scope; CI `test` job
-- [ ] 6.2 Cache: versioning, per-kind max age and freshness, pruning, cheaper mount reads, empty-overwrite guard
+- [x] 6.2 Cache: versioning, per-kind max age and freshness, pruning, cheaper mount reads, empty-overwrite guard
+      (`plh-cache-v2`, older versions removed on write; max age scoreboard 1 d, standings and news 2 d, schedule 3 d,
+      roster 7 d, match summary 14 d; fresh windows standings 5 min, news 15 min, roster 30 min, live kinds 0; expired
+      copies pruned on write; a mount reads and checks only its own key; an empty table, squad or news answer keeps
+      the last good copy and shows it stale; a league-only schedule fallback is never saved over a complete copy;
+      20 new unit tests)
 - [ ] 6.3 Pipeline: validate output before writing, degraded-run floor, clearer and address-free failure reporting;
       form/gameweek generation investigated (above)
 - [ ] 6.4b Production-dependency audit gate in CI; dependency update policy; upgrades evaluated

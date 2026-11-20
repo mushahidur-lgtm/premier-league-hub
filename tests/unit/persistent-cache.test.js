@@ -1,9 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cacheConfig, configureCache, getDiagnostics, readCache, writeCache } from "../../src/lib/data.js";
+import {
+  CACHE_KEY,
+  cacheConfig,
+  configureCache,
+  getDiagnostics,
+  isFresh,
+  readCache,
+  readCacheEntry,
+  writeCache,
+} from "../../src/lib/data.js";
 import { resetDiagnostics } from "../../src/lib/diagnostics.js";
 
 const DEFAULT_CONFIG = JSON.parse(JSON.stringify(cacheConfig));
-const KEY = "plh-cache-v1";
+const KEY = CACHE_KEY;
 const stored = () => JSON.parse(localStorage.getItem(KEY) ?? "{}");
 
 beforeEach(() => {
@@ -12,6 +21,7 @@ beforeEach(() => {
 afterEach(() => {
   Object.assign(cacheConfig, JSON.parse(JSON.stringify(DEFAULT_CONFIG)));
   cacheConfig.maxAgeMs = { ...DEFAULT_CONFIG.maxAgeMs };
+  cacheConfig.freshMs = { ...DEFAULT_CONFIG.freshMs };
 });
 
 describe("persistent cache: expiry", () => {
@@ -23,8 +33,8 @@ describe("persistent cache: expiry", () => {
   });
   it("drops entries older than the default 3 days and counts them as expired", () => {
     const saved = new Date("2025-03-01T10:00:00Z");
-    writeCache("roster", { players: [] }, saved);
-    expect(Object.keys(readCache(saved.getTime() + 3 * 86400e3 - 1000))).toEqual(["roster"]);
+    writeCache("misc", { players: [] }, saved);
+    expect(Object.keys(readCache(saved.getTime() + 3 * 86400e3 - 1000))).toEqual(["misc"]);
     expect(readCache(saved.getTime() + 3 * 86400e3 + 1000)).toEqual({});
     expect(getDiagnostics().persistentCache.expired).toBe(1);
   });
@@ -109,6 +119,54 @@ describe("persistent cache: expiry", () => {
     const { data } = readCache().news;
     expect(data.generatedAt).toBeInstanceOf(Date);
     expect(data.items.map((i) => i.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("persistent cache: versions, durations and pruning", () => {
+  const DAY = 86400e3;
+  it("keeps each kind for its own maximum age", () => {
+    const saved = new Date("2025-03-01T10:00:00Z");
+    for (const k of ["scoreboard", "standings", "news", "schedule:1", "roster:1", "summary:9"]) {
+      writeCache(k, k === "news" ? { items: [] } : { results: [], fixtures: [], players: [] }, saved);
+    }
+    const kinds = (days) => Object.keys(readCache(saved.getTime() + days * DAY - 1000)).sort();
+    expect(kinds(1)).toEqual(["news", "roster:1", "schedule:1", "scoreboard", "standings", "summary:9"]);
+    expect(kinds(2)).toEqual(["news", "roster:1", "schedule:1", "standings", "summary:9"]);
+    expect(kinds(3)).toEqual(["roster:1", "schedule:1", "summary:9"]);
+    expect(kinds(7)).toEqual(["roster:1", "summary:9"]);
+    expect(kinds(14)).toEqual(["summary:9"]);
+    expect(kinds(15)).toEqual([]);
+  });
+  it("only slow-moving kinds have a fresh window; live data never does", () => {
+    const now = new Date("2025-03-01T10:00:00Z").getTime();
+    const ago = (min) => new Date(now - min * 60e3);
+    expect(isFresh("standings", ago(4), now)).toBe(true);
+    expect(isFresh("standings", ago(6), now)).toBe(false);
+    expect(isFresh("news", ago(14), now)).toBe(true);
+    expect(isFresh("roster:359", ago(29), now)).toBe(true);
+    for (const k of ["scoreboard", "schedule:359", "summary:1"]) expect(isFresh(k, ago(0.1), now)).toBe(false);
+  });
+  it("prunes expired copies of other sources when writing", () => {
+    writeCache("scoreboard", { results: [], fixtures: [] }, new Date("2025-03-01T10:00:00Z"));
+    writeCache("standings", { rows: [] }, new Date("2025-03-03T10:00:00Z")); // scoreboard is 2 days old by now
+    expect(Object.keys(stored())).toEqual(["standings"]);
+    expect(getDiagnostics().persistentCache.expired).toBe(1);
+  });
+  it("removes copies saved by other cache versions, and nothing else", () => {
+    localStorage.setItem("plh-cache-v1", JSON.stringify({ standings: { data: { rows: [1] }, savedAt: new Date() } }));
+    localStorage.setItem("plh-my-club", '"arsenal"');
+    expect(readCache()).toEqual({}); // never read
+    writeCache("news", { items: [] });
+    expect(localStorage.getItem("plh-cache-v1")).toBeNull();
+    expect(localStorage.getItem("plh-my-club")).toBe('"arsenal"');
+    expect(KEY).not.toBe("plh-cache-v1");
+  });
+  it("reads one source without needing the others to be valid", () => {
+    const now = new Date().toISOString();
+    localStorage.setItem(KEY, JSON.stringify({ standings: { savedAt: now, data: { rows: [1] } }, junk: 5 }));
+    expect(readCacheEntry("standings")?.data).toEqual({ rows: [1] });
+    expect(readCacheEntry("junk")).toBeNull();
+    expect(readCacheEntry("missing")).toBeNull();
   });
 });
 
