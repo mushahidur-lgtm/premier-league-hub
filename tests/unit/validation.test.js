@@ -171,6 +171,14 @@ describe("match details", () => {
     const out = parseSummary({ boxscore: { teams: "x" }, rosters: {}, keyEvents: "x", leaders: 5, header: [] });
     expect(out).toMatchObject({ stats: [], lineups: [], events: [], leaders: [] });
   });
+  it("keeps a recap link only when it is a web address", () => {
+    const recap = (href) => parseSummary({ article: { headline: "H", links: { web: { href } } } }).recap.link;
+    expect(recap("https://www.espn.com/soccer/report/_/gameId/1")).toBe(
+      "https://www.espn.com/soccer/report/_/gameId/1",
+    );
+    expect(recap("javascript:alert(1)")).toBeNull();
+    expect(recap(undefined)).toBeNull();
+  });
   it("team stats that aren't numeric are left out rather than shown as zero", () => {
     const team = (id, v) => ({
       team: { id },

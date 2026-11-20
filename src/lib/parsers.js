@@ -375,7 +375,8 @@ export function parseSummary(json) {
       ? {
           headline: json.article.headline,
           description: str(json.article.description) ?? "",
-          link: json.article.links?.web?.href ?? null,
+          // Only a web address may become an href.
+          link: /^https?:\/\//i.test(str(json.article.links?.web?.href) ?? "") ? json.article.links.web.href : null,
           source: "ESPN",
         }
       : null,

@@ -587,11 +587,17 @@ export function storyHaystack(story) {
 
 /**
  * Validates the pipeline's news.json and turns it into items for buildStories. Throws a FetchError
- * ("data") if the overall shape is wrong; skips (and counts) items without a title or link. Dates
+ * ("data") if the overall shape is wrong; skips (and counts) items without a title or a web link. Dates
  * become Date objects (null when missing or invalid). Tier and outlet name come from the file's own
  * `outlets` table, falling back to config/clubs.js.
  * @param {unknown} json
  */
+/** Only web addresses reach an href or src (never javascript:, data: and the like). @param {unknown} v */
+const webUrl = (v) => {
+  const s = str(v);
+  return s && /^https?:\/\//i.test(s) ? s : null;
+};
+
 export function parseNewsFile(json) {
   const file = /** @type {any} */ (expectObject(json, "news file"));
   const list = expectArray(file.items, "news items");
@@ -599,7 +605,7 @@ export function parseNewsFile(json) {
   let dropped = 0;
   const items = [];
   for (const i of list) {
-    if (!isObj(i) || !str(i.title) || !str(i.link)) {
+    if (!isObj(i) || !str(i.title) || !webUrl(i.link)) {
       dropped++;
       continue;
     }
@@ -609,7 +615,7 @@ export function parseNewsFile(json) {
       title: i.title,
       link: i.link,
       date: date(i.date),
-      image: str(i.image),
+      image: webUrl(i.image),
       excerpt: str(i.excerpt) ?? "",
       author: str(i.author) ?? "",
       outlet,
@@ -617,7 +623,7 @@ export function parseNewsFile(json) {
       tier: str(outlets[outlet]?.tier) ?? OUTLETS[outlet]?.tier ?? "secondary",
       clubs: arr(i.clubs).filter((c) => typeof c === "string"),
       players: arr(i.players).filter((p) => typeof p === "string"),
-      also: arr(i.also).filter((x) => isObj(x) && str(x.outlet) && str(x.link)),
+      also: arr(i.also).filter((x) => isObj(x) && str(x.outlet) && webUrl(x.link)),
     });
   }
   if (dropped) noteDropped("news", dropped);

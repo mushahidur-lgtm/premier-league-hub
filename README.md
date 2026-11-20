@@ -40,6 +40,8 @@ live from ESPN's CDN. The injury story in the squad shot is the made-up fixture 
 | `npm run preview`             | Serve the build at `/premier-league-hub/`                                |
 | `npm test`                    | Vitest unit tests                                                        |
 | `npm run lint`                | ESLint (including React hooks rules)                                     |
+| `npm run audit:prod`          | Fail on high/critical advisories in shipped dependencies (CI)            |
+| `npm run deps:check`          | Full audit, then `npm outdated` (monthly; exit 1 = something to review)  |
 | `npm run typecheck`           | TypeScript check of every `// @ts-check` file (no emit)                  |
 | `npm run format:check`        | Prettier check (`npm run format` to fix)                                 |
 | `npm run e2e`                 | Playwright (Chromium; 1280, 768 and 375 px; axe), local only             |
@@ -99,6 +101,16 @@ The budget rounds up generously for cache misses, slow runners and feeds that hi
 **Choice: every 4 hours** (cron `0 */4 * * *`, America/Toronto: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00). It keeps
 news under four hours old and leaves room for about 58 pushes a month. Every job is budgeted at a full minute or more, so
 the real use is lower: 183 budgeted scheduled minutes plus, say, 30 pushes × 2 = 60 is about 243 a month.
+
+## Dependencies
+
+- `package-lock.json` is committed and CI installs with `npm ci`, so every build uses the locked versions.
+  `.npmrc` records new dependencies at their exact version and refuses Node versions outside `engines`.
+- CI's `test` job runs `npm run audit:prod`: a high or critical advisory in a dependency that ships to the site
+  stops the push pipeline before `pages`. Scheduled refreshes skip `test`, so they keep deploying news meanwhile.
+- Once a month, or when an advisory appears: `npm run deps:check` (full audit plus `npm outdated`). Upgrade one major
+  at a time, in its own commit, after lint, typecheck, unit tests, build and `npm run e2e` pass. There is no update
+  bot: GitLab is the primary repository and the GitHub mirror only receives pushes.
 
 ## Architecture decisions
 

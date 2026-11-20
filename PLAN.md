@@ -400,7 +400,11 @@ tested and documented.
       stories) both exit 1 without touching the files. GitLab publishes Pages only when the `pages` job succeeds, so
       the live site keeps its data (GitLab's documented behaviour; not forced live). Consequence: a push during a
       feed outage doesn't deploy code either; re-run the job once feeds recover.
-- [ ] 6.4b Production-dependency audit gate in CI; dependency update policy; upgrades evaluated
+- [x] 6.4b Production-dependency audit gate in CI; dependency update policy; upgrades evaluated (`audit:prod` in the
+      CI `test` job, `deps:check`, `.npmrc` with `engine-strict` and `save-exact`; policy in README; deferred
+      majors under Decisions). External data review: route ids already digits-only; parsers validate ESPN shapes;
+      news links, images and "also" links and the ESPN recap link now reach an `href`/`src` only if they are http(s)
+      (the pipeline already dropped other links); crests are `img` sources only.
 - [ ] 6.5 QA: unit, e2e at 375/768/1280, axe, console errors, every route survives a refresh; deploy and live check
 
 ## Decisions

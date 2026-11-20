@@ -286,6 +286,25 @@ describe("parseNewsFile", () => {
     expect(out.items[0]).toMatchObject({ source: "BBC Sport", tier: "reliable", clubs: ["arsenal"] });
     expect(out.items[0].date).toEqual(new Date("2025-01-15T09:00:00Z"));
   });
+  it("only lets web addresses reach a link or an image", () => {
+    const out = parseNewsFile(
+      file([
+        item({ id: "js", link: "javascript:alert(1)" }),
+        item({ id: "data", link: "data:text/html,x" }),
+        item({
+          id: "ok",
+          image: "javascript:x",
+          also: [
+            { outlet: "sky", link: "javascript:y" },
+            { outlet: "guardian", link: "https://www.theguardian.com/2" },
+          ],
+        }),
+      ]),
+    );
+    expect(out.items.map((i) => i.id)).toEqual(["ok"]);
+    expect(out.items[0].image).toBeNull();
+    expect(out.items[0].also.map((a) => a.outlet)).toEqual(["guardian"]);
+  });
   it.each([null, "x", [], {}, { items: "nope" }])("rejects a malformed file (%j) as a data error", (bad) => {
     expect(() => parseNewsFile(bad)).toThrow(expect.objectContaining({ kind: "data" }));
   });
