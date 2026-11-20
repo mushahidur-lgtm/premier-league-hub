@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { mockAll, RECORDED } from "./mock.js";
+import { clubBySlug } from "../../src/config/clubs.js";
 
 const axeClean = async (page) => {
   const { violations } = await new AxeBuilder({ page })
@@ -11,8 +12,18 @@ const axeClean = async (page) => {
 const noOverflow = async (page) =>
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
+// Every test fails on a console error or uncaught exception, unless it expects one (see the failing-source test).
+const consoleErrors = new WeakMap();
 test.beforeEach(async ({ page }) => {
+  const errors = [];
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  page.on("pageerror", (e) => errors.push(e.message));
+  consoleErrors.set(page, errors);
   await mockAll(page);
+});
+test.afterEach(async ({ page }, info) => {
+  if (info.annotations.some((a) => a.type === "expects-console-errors")) return;
+  expect(consoleErrors.get(page)).toEqual([]);
 });
 
 test("home: table, fixtures, stories and club grid", async ({ page }) => {
@@ -110,7 +121,42 @@ test("skip link moves focus to the content", async ({ page }) => {
   await expect(page.locator("#main")).toBeFocused();
 });
 
+test("every route survives a reload, content and title", async ({ page }) => {
+  const routes = [
+    [
+      "#/",
+      /table, fixtures and news/,
+      () => expect(page.locator("section[aria-labelledby=table-heading] tbody tr")).toHaveCount(20),
+    ],
+    [
+      `#/club/${RECORDED.club}`,
+      new RegExp(`^${clubBySlug(RECORDED.club).name} · `),
+      () => expect(page.getByRole("heading", { level: 1 })).toBeVisible(),
+    ],
+    [
+      `#/match/${RECORDED.eventId}`,
+      / v .* · /,
+      () => expect(page.getByRole("heading", { name: "Key events" })).toBeVisible(),
+    ],
+    ["#/search?q=arsenal", /^Search: arsenal · /, () => expect(page.getByRole("searchbox")).toHaveValue("arsenal")],
+    [
+      "#/nowhere",
+      /^Page not found · /,
+      () => expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible(),
+    ],
+  ];
+  for (const [hash, title, check] of routes) {
+    await page.goto(`./${hash}`);
+    await check();
+    await expect(page).toHaveTitle(title);
+    await page.reload();
+    await check();
+    await expect(page).toHaveTitle(title);
+  }
+});
+
 test("a failing source shows an error with a retry, and the rest of the page still works", async ({ page }) => {
+  test.info().annotations.push({ type: "expects-console-errors" }); // the deliberate HTTP 500
   await page.unrouteAll();
   await mockAll(page, { fail: /\/standings/ });
   await page.goto("./");
