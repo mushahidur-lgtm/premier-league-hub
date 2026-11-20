@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from "react";
-import { RefreshCw, Search } from "lucide-react";
+import { ChartColumn, RefreshCw, Search } from "lucide-react";
 import { CLUBS, clubBySlug } from "./config/clubs.js";
 import { SITE_NAME } from "./config/site.js";
 import { accentVars } from "./lib/accent.js";
@@ -16,6 +16,7 @@ const MatchPage = lazyRetry(() => import("./components/MatchPage.jsx"));
 const SearchPage = lazyRetry(() => import("./components/SearchPage.jsx"));
 const PlayerPage = lazyRetry(() => import("./components/PlayerPage.jsx"));
 const ComparePage = lazyRetry(() => import("./components/ComparePage.jsx"));
+const StatsPage = lazyRetry(() => import("./components/StatsPage.jsx"));
 
 function useRoute() {
   const [route, setRoute] = useState(() => parseHash(window.location.hash));
@@ -64,6 +65,13 @@ function Header() {
           >
             <Search aria-hidden="true" className="size-5" />
             <span className="sr-only sm:not-sr-only">Search</span>
+          </a>
+          <a
+            href="#/stats"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md px-2 font-semibold hover:bg-field"
+          >
+            <ChartColumn aria-hidden="true" className="size-5" />
+            <span className="sr-only sm:not-sr-only">Statistics</span>
           </a>
           <ClubPicker />
           <button
@@ -117,6 +125,8 @@ function Page({ route, myClub }) {
       return <PlayerPage playerId={route.playerId} />;
     case "compare":
       return <ComparePage a={route.a} b={route.b} />;
+    case "stats":
+      return <StatsPage route={route} myClub={myClub} />;
     case "search":
       return <SearchPage query={route.query} />;
     default:

@@ -36,6 +36,7 @@ const summary = Object.fromEntries(
 const news = await get(`${SITE}/news.json`);
 const meta = await get(`${SITE}/meta.json`);
 const league = await get(`${SITE}/league.json`);
+const stats = await get(`${SITE}/stats.json`);
 // Two squad players with league appearances: one with a recorded profile and match log, both for comparing.
 const regulars = roster.athletes.filter((a) =>
   a.statistics?.splits?.categories?.some((c) => c.stats?.some((s) => s.name === "appearances" && s.value > 0)),
@@ -71,6 +72,30 @@ for (const e of Object.values(gamelog.events)) {
   if (e.opponent) e.opponent = { id: e.opponent.id, displayName: e.opponent.displayName };
   if (e.team) e.team = { id: e.team.id };
 }
+// The recorded player's previous Premier League season from ESPN's core API (only the figures the parser reads).
+const previousYear = stats.seasons?.[1]?.year;
+const seasonJson = await get(
+  `https://sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/seasons/${previousYear}/types/1/athletes/${player.id}/statistics`,
+);
+const SEASON_KEYS = new Set([
+  "appearances",
+  "minutes",
+  "totalGoals",
+  "goalAssists",
+  "totalShots",
+  "shotsOnTarget",
+  "saves",
+  "yellowCards",
+  "redCards",
+]);
+const athleteSeason = {
+  splits: {
+    categories: seasonJson.splits.categories.map((c) => ({
+      name: c.name,
+      stats: c.stats.filter((s) => SEASON_KEYS.has(s.name)).map((s) => ({ name: s.name, value: s.value })),
+    })),
+  },
+};
 news.items = news.items.slice(0, 120); // keeps the fixture small; enough for every section
 // One made-up injury story about a squad player ESPN lists as fine, so the e2e tests always exercise
 // the "reported injured" note (rule 3) whatever the real news was on the day.
@@ -100,6 +125,8 @@ await Promise.all([
   save("league.json", league),
   save("athlete.json", athlete),
   save("gamelog.json", gamelog),
+  save("stats.json", stats),
+  save("athlete-season.json", athleteSeason),
   save("recorded.json", {
     recordedAt,
     club: club.slug,

@@ -33,6 +33,13 @@ export async function mockAll(page, { fail } = {}) {
           ? route.fulfill(json(load("summary.json")))
           : route.fulfill(json("{}", 404));
       }
+      // ESPN core API: one recorded player's previous season; anyone else has no record (404, as ESPN answers).
+      const season = /sports\.core\.api\.espn\.com\/.*\/athletes\/(\d+)\/statistics/.exec(url);
+      if (season) {
+        return season[1] === RECORDED.playerId
+          ? route.fulfill(json(load("athlete-season.json")))
+          : route.fulfill(json("{}", 404));
+      }
       const athlete = /\/athletes\/(\d+)(\/gamelog)?$/.exec(url);
       if (athlete) {
         if (athlete[1] !== RECORDED.playerId) return route.fulfill(json("{}", 404));
@@ -48,7 +55,7 @@ export async function mockAll(page, { fail } = {}) {
       return route.abort();
     },
   );
-  await page.route(/\/data\/(news|meta|league)\.json/, (route) =>
-    route.fulfill(json(load(/(news|meta|league)\.json/.exec(route.request().url())[0]))),
+  await page.route(/\/data\/(news|meta|league|stats)\.json/, (route) =>
+    route.fulfill(json(load(/(news|meta|league|stats)\.json/.exec(route.request().url())[0]))),
   );
 }

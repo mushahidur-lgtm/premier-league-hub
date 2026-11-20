@@ -170,6 +170,101 @@ test("compare two players from the same season, with unavailable figures marked"
   await expect(page.getByText("No player with id 1 in the current Premier League squads.")).toBeVisible();
 });
 
+test("statistics: teams, with club and season filters kept in the address", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("link", { name: "Statistics" }).click();
+  await expect(page).toHaveURL(/#\/stats$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Statistics" })).toBeVisible();
+  await expect(page).toHaveTitle("Statistics · Premier League Hub");
+  await expect(page.getByText(/^Competition: Premier League/)).toBeVisible();
+  await expect(page.getByRole("img", { name: /^Bar chart: Goals scored/ })).toBeVisible();
+
+  await page.getByLabel("Club", { exact: true }).selectOption("arsenal");
+  await expect(page).toHaveURL(/club=arsenal/);
+  await expect(page.getByRole("heading", { name: /^Arsenal, \d{4}-\d{2}$/ })).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: /home and away records/ }).getByRole("rowheader", { name: "Home" }),
+  ).toBeVisible();
+
+  await page.getByLabel("Statistic", { exact: true }).selectOption("possession");
+  await expect(page).toHaveURL(/metric=possession/);
+  await expect(page.getByLabel("Per match")).toHaveCount(0); // a percentage can't be per match
+  await page.getByText("Show as a table").click();
+  await expect(page.getByRole("table", { name: /Possession, .* ranked/ }).locator("tbody tr")).toHaveCount(20);
+
+  // Last season: clubs promoted since are listed as absent, never shown as zeros.
+  const seasons = await page.getByLabel("Season", { exact: true }).locator("option").allTextContents();
+  await page.getByLabel("Season", { exact: true }).selectOption({ label: seasons[1] });
+  await expect(page).toHaveURL(/season=\d{4}/);
+  await expect(page.getByText(new RegExp(`Not in the Premier League in ${seasons[1]}:`))).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByLabel("Club", { exact: true })).toHaveValue("arsenal");
+  await expect(page.getByLabel("Statistic", { exact: true })).toHaveValue("possession");
+  await expect(page.getByLabel("Season", { exact: true }).locator("option:checked")).toHaveText(seasons[1]);
+  await noOverflow(page);
+  await axeClean(page);
+});
+
+test("statistics: players table, per 90 and one player's two seasons", async ({ page }) => {
+  await page.goto(`./#/stats?view=players`);
+  await expect(
+    page
+      .getByRole("table", { name: /Goals, ranked/ })
+      .locator("tbody tr")
+      .first(),
+  ).toBeVisible();
+  await page.getByLabel("Per 90 minutes").check();
+  await expect(page).toHaveURL(/per=1/);
+  await page.getByLabel("Club", { exact: true }).selectOption(RECORDED.club);
+  await page.getByLabel("Player", { exact: true }).selectOption(RECORDED.playerId);
+  await expect(page).toHaveURL(new RegExp(`player=${RECORDED.playerId}`));
+  const panel = page.getByRole("table", { name: /this season and last/ });
+  await expect(panel).toBeVisible();
+  // Last season comes from ESPN's core API (recorded): a real number, not "–".
+  await expect(
+    panel
+      .getByRole("row", { name: /^Appearances/ })
+      .locator("td")
+      .last(),
+  ).toHaveText(/^\d+$/);
+  await expect(page.getByRole("link", { name: "Compare with another player" })).toHaveAttribute(
+    "href",
+    `#/compare?a=${RECORDED.playerId}`,
+  );
+  await page.reload();
+  await expect(page.getByLabel("Player", { exact: true })).toHaveValue(RECORDED.playerId);
+  await noOverflow(page);
+  await axeClean(page);
+});
+
+test("statistics: points and position by gameweek, up to four clubs, with a table view", async ({ page }) => {
+  await page.goto(`./#/stats?view=progression`);
+  const chosen = page.getByRole("list", { name: "Clubs shown" }).getByRole("listitem");
+  await expect(chosen).toHaveCount(4); // the current top four when nothing is chosen
+  await expect(page.getByRole("img", { name: /^Line chart: league position/ })).toBeVisible();
+  await page
+    .getByRole("button", { name: /^Remove / })
+    .first()
+    .click();
+  await expect(chosen).toHaveCount(3);
+  await expect(page).toHaveURL(/club=[a-z-]+,[a-z-]+,[a-z-]+$/);
+  await page.getByLabel("Add a club", { exact: true }).selectOption("hull");
+  await expect(chosen).toHaveCount(4);
+  await page.getByLabel("Show", { exact: true }).selectOption("points");
+  await expect(page.getByRole("img", { name: /^Line chart: points/ })).toBeVisible();
+  await page.getByText("Show as a table").click();
+  await expect(
+    page
+      .getByRole("table", { name: /after each gameweek/ })
+      .locator("tbody tr")
+      .first(),
+  ).toBeVisible();
+  await expect(page.getByText(/clubs level on all three share a place/)).toBeVisible();
+  await noOverflow(page);
+  await axeClean(page);
+});
+
 test("club page: matches, position, form, news and squad", async ({ page }) => {
   await page.goto(`./#/club/${RECORDED.club}`);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
