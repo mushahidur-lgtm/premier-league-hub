@@ -603,6 +603,20 @@ test("dark mode: follows the device, passes AA on every route, and the header bu
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#0e1512");
 });
 
+test("a visitor on an older build is told a newer one is live, and can reload", async ({ page }) => {
+  await page.goto("./#/");
+  // The build's own version.json matches the running build: no notice.
+  await expect(page.locator("section[aria-labelledby=table-heading] tbody tr").first()).toBeVisible();
+  await expect(page.getByText("A new version of this site is available.")).toHaveCount(0);
+  await page.route(/\/version\.json$/, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: '{"build":"a-newer-build"}' }),
+  );
+  await page.reload();
+  await expect(page.getByRole("status").filter({ hasText: "A new version of this site is available." })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reload" })).toBeVisible();
+  await axeClean(page);
+});
+
 test("a failing source shows an error with a retry, and the rest of the page still works", async ({ page }) => {
   test.info().annotations.push({ type: "expects-console-errors" }); // the deliberate HTTP 500
   await page.unrouteAll();
