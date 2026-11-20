@@ -169,7 +169,7 @@ export default function ClubPage({ club }) {
 
   return (
     <div className="space-y-10">
-      <header className="relative overflow-hidden rounded-lg border border-line bg-white">
+      <header className="relative overflow-hidden rounded-lg border border-line bg-surface">
         <div aria-hidden="true" className="kit-stripe h-2" />
         <div className="flex flex-wrap items-center gap-4 p-4">
           <Crest espnId={club.espnId} size={64} />

@@ -265,7 +265,7 @@ export function MatchStrip({ m, label, now = Date.now() }) {
   const phase = matchPhase(m, now);
   const scored = m.home.score != null && m.away.score != null && (phase === "live" || phase === "completed");
   return (
-    <article className="relative overflow-hidden rounded-lg border border-line bg-white">
+    <article className="relative overflow-hidden rounded-lg border border-line bg-surface">
       <div aria-hidden="true" className="kit-stripe absolute inset-y-0 left-0 w-2" />
       <div className="py-4 pr-4 pl-6">
         <p className="text-sm font-semibold text-accent">
@@ -349,7 +349,7 @@ export function StoryList({ stories, now = Date.now() }) {
 }
 
 const STATUS_STYLE = {
-  confirmed: { label: "Confirmed", className: "bg-ink text-white" },
+  confirmed: { label: "Confirmed", className: "bg-ink text-chalk" },
   reported: { label: "Reported", className: "border border-line text-ink" },
 };
 
@@ -399,7 +399,7 @@ export function ClubGrid({ clubs }) {
         <li key={c.slug}>
           <a
             href={toHash({ name: "club", slug: c.slug })}
-            className="flex min-h-11 items-center gap-2 rounded-md border border-line bg-white px-2 py-2 font-semibold hover:border-ink"
+            className="flex min-h-11 items-center gap-2 rounded-md border border-line bg-surface px-2 py-2 font-semibold hover:border-ink"
           >
             <span aria-hidden="true" className="h-6 w-1 shrink-0 rounded-sm" style={{ background: c.colors.primary }} />
             <Crest espnId={c.espnId} size={28} />

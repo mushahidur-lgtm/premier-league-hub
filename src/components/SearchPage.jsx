@@ -32,7 +32,7 @@ export default function SearchPage({ query }) {
         <label htmlFor="q" className="mb-1 block font-semibold">
           Clubs, players and stories
         </label>
-        <div className="flex items-center gap-2 rounded-md border border-ink bg-white px-3 focus-within:outline-3 focus-within:outline-accent">
+        <div className="flex items-center gap-2 rounded-md border border-ink bg-surface px-3 focus-within:outline-3 focus-within:outline-accent">
           <Search aria-hidden="true" className="size-5 text-muted" />
           <input
             id="q"
@@ -71,7 +71,7 @@ export default function SearchPage({ query }) {
               <li key={c.slug}>
                 <a
                   href={toHash({ name: "club", slug: c.slug })}
-                  className="flex min-h-11 items-center gap-2 rounded-md border border-line bg-white px-3 font-semibold hover:border-ink"
+                  className="flex min-h-11 items-center gap-2 rounded-md border border-line bg-surface px-3 font-semibold hover:border-ink"
                 >
                   <Crest espnId={c.espnId} size={24} /> {c.name}
                 </a>

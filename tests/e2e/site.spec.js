@@ -564,6 +564,45 @@ test("every route survives a reload, content and title", async ({ page }) => {
   }
 });
 
+test("dark mode: follows the device, passes AA on every route, and the header button switches it", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== "mobile", "colours don't depend on width; one width is enough");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("./#/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  const routes = [
+    ["#/", () => page.locator("section[aria-labelledby=table-heading] tbody tr").first()],
+    [`#/club/${RECORDED.club}`, () => page.getByRole("heading", { level: 1 })],
+    [`#/match/${RECORDED.eventId}`, () => page.getByRole("heading", { name: "Timeline" })],
+    [`#/player/${RECORDED.playerId}`, () => page.getByRole("heading", { name: "Profile" })],
+    [`#/compare?a=${RECORDED.playerId}&b=${RECORDED.otherPlayerId}`, () => page.getByRole("table").first()],
+    [`#/stats?club=${RECORDED.club}`, () => page.getByRole("img", { name: /^Bar chart/ })],
+    ["#/stats?view=players", () => page.getByRole("table").first()],
+    ["#/stats?view=progression", () => page.getByRole("img", { name: /^Line chart/ })],
+    ["#/fpl", () => page.getByRole("table").first()],
+    ["#/fpl?view=assistant&out=1&bank=15", () => page.getByRole("table", { name: /Possible replacements/ })],
+    ["#/fpl?view=compare&a=1&b=2", () => page.getByRole("table").first()],
+    ["#/search?q=arsenal", () => page.getByRole("searchbox")],
+  ];
+  for (const [hash, ready] of routes) {
+    await page.goto(`./${hash}`);
+    await expect(ready()).toBeVisible();
+    await noOverflow(page);
+    await axeClean(page);
+  }
+  // The button cycles device → light → dark, and the choice survives a reload.
+  const button = page.getByRole("button", { name: /^Theme:/ });
+  await expect(button).toHaveAccessibleName("Theme: same as device");
+  await button.click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: /^Theme:/ }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#0e1512");
+});
+
 test("a failing source shows an error with a retry, and the rest of the page still works", async ({ page }) => {
   test.info().annotations.push({ type: "expects-console-errors" }); // the deliberate HTTP 500
   await page.unrouteAll();

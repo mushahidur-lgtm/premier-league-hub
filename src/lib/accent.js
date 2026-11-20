@@ -11,6 +11,8 @@
 /** Page background and body text; keep in sync with the tokens in index.css. */
 export const SURFACE = "#FAFBF8";
 export const INK = "#14201B";
+/** Dark theme surfaces and text; keep in sync with :root[data-theme="dark"] in index.css. */
+export const DARK = { chalk: "#0E1512", surface: "#151E1A", field: "#1C2722", ink: "#E6ECE8" };
 /** The site's own accent when no club is picked. */
 export const DEFAULT_ACCENT = "#1F5135";
 
@@ -64,11 +66,26 @@ export function readableOn(hex, min = 4.5, bg = SURFACE) {
 }
 
 /**
- * CSS custom properties for a club (or the site default for null):
- *   --accent         text, links, focus rings and button fills; at least 4.5:1 on SURFACE
- *   --accent-ink     text on an --accent fill (white or ink, whichever reads better)
- *   --accent-soft    a pale tint of the accent for backgrounds behind ink text
- *   --kit-1, --kit-2 the club's raw colours, decoration only
+ * The dark-theme accent: `hex` mixed towards the dark theme's text colour (lighter) until it reaches 4.5:1 on
+ * the lightest dark surface text sits on, and on its own dark tint.
+ * @param {string} hex
+ */
+export function darkAccent(hex) {
+  const base = parseHex(hex) ? hex : DEFAULT_ACCENT;
+  for (let i = 0; i <= 50; i++) {
+    const c = mix(base, DARK.ink, i / 50);
+    if (contrast(c, DARK.field) >= 4.5 && contrast(c, mix(c, DARK.chalk, 0.85)) >= 4.5) return c;
+  }
+  return DARK.ink;
+}
+
+/**
+ * CSS custom properties for a club (or the site default for null), one set per theme; index.css's
+ * .accent-scope picks the set for the current theme:
+ *   --accent-l / -d         text, links, focus rings and button fills; at least 4.5:1 on that theme's page
+ *   --accent-ink-l / -d     text on an accent fill (white or the theme's dark ink, whichever reads better)
+ *   --accent-soft-l / -d    a tint of the accent for backgrounds behind body text
+ *   --kit-1, --kit-2        the club's raw colours, decoration only
  * @param {{ colors: { primary: string, secondary: string } } | null} club
  * @returns {Record<string, string>}
  */
@@ -81,10 +98,15 @@ export function accentVars(club) {
     accent = mix(club ? readableOn(primary) : DEFAULT_ACCENT, INK, i / 50);
   }
   const accentInk = contrast("#FFFFFF", accent) >= contrast(INK, accent) ? "#FFFFFF" : INK;
+  const dark = darkAccent(primary);
+  const darkInk = contrast("#FFFFFF", dark) >= contrast(DARK.chalk, dark) ? "#FFFFFF" : DARK.chalk;
   return {
-    "--accent": accent,
-    "--accent-ink": accentInk,
-    "--accent-soft": mix(accent, SURFACE, 0.9),
+    "--accent-l": accent,
+    "--accent-ink-l": accentInk,
+    "--accent-soft-l": mix(accent, SURFACE, 0.9),
+    "--accent-d": dark,
+    "--accent-ink-d": darkInk,
+    "--accent-soft-d": mix(dark, DARK.chalk, 0.85),
     "--kit-1": parseHex(primary) ? primary : DEFAULT_ACCENT,
     "--kit-2": parseHex(secondary) ? secondary : INK,
   };

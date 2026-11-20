@@ -20,7 +20,7 @@ const EVENT_LABEL = {
   sub: "Substitution",
 };
 const EVENT_MARK = { goal: "●", penalty: "●", "own-goal": "●", yellow: "▮", red: "▮", sub: "⇄" };
-const EVENT_CLS = { yellow: "text-[#9a6b00]", red: "text-loss", sub: "text-muted" };
+const EVENT_CLS = { yellow: "text-card-yellow", red: "text-loss", sub: "text-muted" };
 
 /** Timeline marks: a symbol plus a word for each kind, so the symbol is never the only cue. */
 const PLAY = {
@@ -28,7 +28,7 @@ const PLAY = {
   penalty: ["●", "Penalty goal", "text-ink"],
   "own-goal": ["●", "Own goal", "text-ink"],
   "penalty-missed": ["○", "Penalty missed", "text-muted"],
-  yellow: ["▮", "Yellow card", "text-[#9a6b00]"],
+  yellow: ["▮", "Yellow card", "text-card-yellow"],
   red: ["▮", "Red card", "text-loss"],
   sub: ["⇄", "Substitution", "text-muted"],
   var: ["▣", "VAR", "text-ink"],
@@ -50,7 +50,7 @@ const fmtStat = (key, v) =>
 
 const toggle = (on) =>
   `inline-flex min-h-11 items-center rounded-md border px-3 text-sm font-semibold ${
-    on ? "border-ink bg-ink text-white" : "border-line bg-white hover:bg-field"
+    on ? "border-ink bg-ink text-chalk" : "border-line bg-surface hover:bg-field"
   }`;
 
 /** Formation pitch: starters placed by lib/pitch.js, attack at the top. */
@@ -258,7 +258,7 @@ function ByTeam({ events, match }) {
                 items={s.cards}
                 render={(c) => (
                   <>
-                    <span aria-hidden="true" className={c.kind === "red" ? "text-loss" : "text-[#9a6b00]"}>
+                    <span aria-hidden="true" className={c.kind === "red" ? "text-loss" : "text-card-yellow"}>
                       ▮{" "}
                     </span>
                     {c.primary} <span className="text-muted">({c.kind === "red" ? "red" : "yellow"})</span>
@@ -425,7 +425,7 @@ function LiveBadge() {
       title="Live data from ESPN"
       className="inline-flex items-center gap-1.5 rounded-full bg-loss px-2.5 py-1 text-sm font-semibold text-white"
     >
-      <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-white" />
+      <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-surface" />
       Live
     </span>
   );

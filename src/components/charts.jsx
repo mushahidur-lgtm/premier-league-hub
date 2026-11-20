@@ -27,13 +27,15 @@ function useWidth(initial = 640) {
 /** Categorical order validated on #fafbf8 (scripts/validate_palette.js): blue, orange, aqua, yellow. */
 export const SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"];
 const MARKERS = ["circle", "square", "triangle", "diamond"];
-const INK = "#14201b";
-const MUTED = "#4f5c55";
-const GRID = "#d5ddd8";
+// Theme tokens (index.css), so the charts follow light and dark. Used through style: SVG presentation
+// attributes do not take var().
+const INK = "var(--color-ink)";
+const MUTED = "var(--color-muted)";
+const GRID = "var(--color-line)";
 
 /** A marker shape centred on (x, y). */
 export function Marker({ shape, x, y, r = 4.5, color, title }) {
-  const common = { fill: color, stroke: "#fafbf8", strokeWidth: 1.5 };
+  const common = { style: { fill: color, stroke: "var(--color-chalk)" }, strokeWidth: 1.5 };
   const t = title ? <title>{title}</title> : null;
   if (shape === "square")
     return (
@@ -95,7 +97,7 @@ export function BarChart({ rows, summary, unit = "" }) {
         aria-label={summary}
         className="block"
       >
-        <line x1={labelW} y1={0} x2={labelW} y2={height} stroke={GRID} />
+        <line x1={labelW} y1={0} x2={labelW} y2={height} style={{ stroke: GRID }} />
         {rows.map((r, i) => {
           const y = i * rowH + 4;
           const w = Math.max(2, (r.value / max) * plotW);
@@ -110,18 +112,18 @@ export function BarChart({ rows, summary, unit = "" }) {
                 dominantBaseline="middle"
                 fontSize="13"
                 fontWeight={r.highlight ? 700 : 400}
-                fill={INK}
+                style={{ fill: INK }}
               >
                 {r.label}
               </text>
-              <rect x={labelW} y={y + 3} width={w} height={rowH - 8} rx={3} fill={color} />
+              <rect x={labelW} y={y + 3} width={w} height={rowH - 8} rx={3} style={{ fill: color }} />
               <text
                 x={labelW + w + 6}
                 y={y + rowH / 2 + 1}
                 dominantBaseline="middle"
                 fontSize="13"
                 fontWeight={r.highlight ? 700 : 400}
-                fill={INK}
+                style={{ fill: INK }}
               >
                 {r.display}
                 {unit}
@@ -168,8 +170,15 @@ export function LineChart({ series, xs, yMin, yMax, invert = false, summary, yLa
         <title id={`${id}-t`}>{summary}</title>
         {yTicks.map((t) => (
           <g key={t}>
-            <line x1={m.left} x2={width - m.right} y1={y(t)} y2={y(t)} stroke={GRID} strokeWidth={1} />
-            <text x={m.left - 6} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize="12" fill={MUTED}>
+            <line x1={m.left} x2={width - m.right} y1={y(t)} y2={y(t)} style={{ stroke: GRID }} strokeWidth={1} />
+            <text
+              x={m.left - 6}
+              y={y(t)}
+              textAnchor="end"
+              dominantBaseline="middle"
+              fontSize="12"
+              style={{ fill: MUTED }}
+            >
               {t}
             </text>
           </g>
@@ -178,14 +187,14 @@ export function LineChart({ series, xs, yMin, yMax, invert = false, summary, yLa
           // At most one label per ~36 px, always keeping the latest gameweek.
           .filter((_, i) => i === xs.length - 1 || i % Math.max(1, Math.ceil((xs.length * 36) / plotW)) === 0)
           .map((v) => (
-            <text key={v} x={x(v)} y={height - m.bottom + 18} textAnchor="middle" fontSize="12" fill={MUTED}>
+            <text key={v} x={x(v)} y={height - m.bottom + 18} textAnchor="middle" fontSize="12" style={{ fill: MUTED }}>
               {v}
             </text>
           ))}
-        <text x={m.left + plotW / 2} y={height - 4} textAnchor="middle" fontSize="12" fill={MUTED}>
+        <text x={m.left + plotW / 2} y={height - 4} textAnchor="middle" fontSize="12" style={{ fill: MUTED }}>
           Gameweek
         </text>
-        <text x={m.left - 6} y={12} textAnchor="start" fontSize="12" fill={MUTED}>
+        <text x={m.left - 6} y={12} textAnchor="start" fontSize="12" style={{ fill: MUTED }}>
           {yLabel}
         </text>
         {series.map((s, i) => (
@@ -217,7 +226,7 @@ export function LineChart({ series, xs, yMin, yMax, invert = false, summary, yLa
             dominantBaseline="middle"
             fontSize="12"
             fontWeight={700}
-            fill={INK}
+            style={{ fill: INK }}
           >
             {e.s.short}
           </text>

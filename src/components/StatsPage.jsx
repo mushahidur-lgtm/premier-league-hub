@@ -24,7 +24,7 @@ const VIEWS = [
   ["progression", "Points and position"],
 ];
 
-const control = "min-h-11 rounded-md border border-line bg-white px-2";
+const control = "min-h-11 rounded-md border border-line bg-surface px-2";
 
 /** A number for display: the metric's decimals, its unit, "–" when unknown. */
 const show = (v, metric, per) => {
@@ -298,7 +298,7 @@ function PlayerPanel({ player, data }) {
     ["Yellow cards", "yellowCards"],
   ];
   return (
-    <div className="space-y-2 rounded-md border border-line bg-white p-4">
+    <div className="space-y-2 rounded-md border border-line bg-surface p-4">
       <h3 className="flex flex-wrap items-center gap-2 font-display text-xl font-semibold">
         <Crest espnId={club?.espnId} size={24} />
         <a href={toHash({ name: "player", playerId: player.id })} className="underline-offset-2 hover:underline">
@@ -557,7 +557,7 @@ function ProgressionView({ league, route, go, myClub }) {
       </div>
       <ul className="flex flex-wrap gap-2" aria-label="Clubs shown">
         {series.map((s, i) => (
-          <li key={s.key} className="flex items-center gap-2 rounded-md border border-line bg-white py-1 pr-1 pl-2">
+          <li key={s.key} className="flex items-center gap-2 rounded-md border border-line bg-surface py-1 pr-1 pl-2">
             <SeriesKey i={i} />
             <span className="font-semibold">{s.label}</span>
             {chosen.length > 1 && (

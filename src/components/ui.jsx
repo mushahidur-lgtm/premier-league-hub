@@ -1,4 +1,5 @@
 import { Component, useEffect, useMemo, useState } from "react";
+import { darkCrest, useTheme } from "../lib/theme.js";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import { clubByEspnId, clubBySlug } from "../config/clubs.js";
 import { sizedCrest } from "../lib/crest.js";
@@ -9,7 +10,7 @@ import { toHash } from "../lib/route.js";
 
 /** Shared button look: 44 px tall, visible focus from index.css. */
 export const btn =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 font-semibold text-ink hover:border-ink";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-surface px-3 font-semibold text-ink hover:border-ink";
 export const btnAccent =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-4 font-semibold text-accent-ink hover:opacity-90";
 
@@ -86,7 +87,7 @@ export function Section({
         </p>
       )}
       {state.status === "error" && (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-loss/40 bg-white p-3">
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-loss/40 bg-surface p-3">
           <TriangleAlert aria-hidden="true" className="size-5 shrink-0 text-loss" />
           <p className="min-w-0 flex-1">
             {hasData ? "Couldn’t refresh; showing the last saved copy." : "Couldn’t load this section."}{" "}
@@ -113,7 +114,10 @@ export function Section({
 
 /** ESPN CDN crest. Decorative next to a name, so alt is empty unless `label` is given. */
 export function Crest({ src, espnId, size = 24, label = "" }) {
-  const url = src || (espnId ? `https://a.espncdn.com/i/teamlogos/soccer/500/${espnId}.png` : null);
+  const { theme } = useTheme();
+  const base = src || (espnId ? `https://a.espncdn.com/i/teamlogos/soccer/500/${espnId}.png` : null);
+  // ESPN draws a dark-background version of each crest (navy and black crests vanish on a dark page otherwise).
+  const url = base && theme === "dark" ? darkCrest(base) : base;
   if (!url) return <span style={{ width: size, height: size }} className="inline-block shrink-0" />;
   return (
     <img
@@ -233,7 +237,7 @@ export class ErrorBoundary extends Component {
     if (!error) return this.props.children;
     const chunk = isChunkError(error);
     return (
-      <div role="alert" className="rounded-md border border-loss/40 bg-white p-4">
+      <div role="alert" className="rounded-md border border-loss/40 bg-surface p-4">
         <h2 className="font-display text-2xl font-semibold">
           {chunk ? "This page needs a reload" : "Something went wrong on this page"}
         </h2>

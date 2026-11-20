@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from "react";
-import { ChartColumn, RefreshCw, Search, Shirt } from "lucide-react";
+import { ChartColumn, Monitor, Moon, RefreshCw, Search, Shirt, Sun } from "lucide-react";
 import { CLUBS, clubBySlug } from "./config/clubs.js";
 import { SITE_NAME } from "./config/site.js";
 import { accentVars } from "./lib/accent.js";
@@ -7,6 +7,7 @@ import { refreshAll, useAutoRefresh } from "./lib/data.js";
 import { lazyRetry } from "./lib/lazy.js";
 import { pageKey, parseHash, toHash } from "./lib/route.js";
 import { useMyClub } from "./lib/storage.js";
+import { useTheme } from "./lib/theme.js";
 import { titleFor } from "./lib/titles.js";
 import { ErrorBoundary } from "./components/ui.jsx";
 import Home from "./components/Home.jsx";
@@ -37,7 +38,7 @@ function ClubPicker() {
       <select
         value={slug ?? ""}
         onChange={(e) => setSlug(e.target.value || null)}
-        className="min-h-11 max-w-40 rounded-md border border-line bg-white px-2 font-semibold text-ink"
+        className="min-h-11 max-w-40 rounded-md border border-line bg-surface px-2 font-semibold text-ink"
       >
         <option value="">Pick your club</option>
         {CLUBS.map((c) => (
@@ -50,10 +51,31 @@ function ClubPicker() {
   );
 }
 
+const THEME_ICON = { system: Monitor, light: Sun, dark: Moon };
+const THEME_WORD = { system: "Theme: same as device", light: "Theme: light", dark: "Theme: dark" };
+
+/** Cycles System → Light → Dark. The label says the current choice; the title says what a press does. */
+function ThemeButton() {
+  const { pref, setPref } = useTheme();
+  const Icon = THEME_ICON[pref];
+  const next = pref === "system" ? "light" : pref === "light" ? "dark" : "system";
+  return (
+    <button
+      type="button"
+      onClick={() => setPref(next)}
+      title={`Switch to ${next === "system" ? "the device's theme" : `${next} theme`}`}
+      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-field"
+    >
+      <Icon aria-hidden="true" className="size-5" />
+      <span className="sr-only">{THEME_WORD[pref]}</span>
+    </button>
+  );
+}
+
 function Header() {
   const [spinning, setSpinning] = useState(false);
   return (
-    <header className="border-b border-line bg-white">
+    <header className="border-b border-line bg-surface">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2">
         <a href="#/" className="mr-auto flex min-h-11 items-center gap-2">
           <span aria-hidden="true" className="kit-stripe inline-block h-6 w-2 rounded-sm" />
@@ -86,6 +108,7 @@ function Header() {
             </span>
           </a>
           <ClubPicker />
+          <ThemeButton />
           <button
             type="button"
             onClick={() => {
@@ -180,7 +203,7 @@ export default function App() {
   }, [page]);
 
   return (
-    <div style={vars} className="flex min-h-screen flex-col bg-chalk text-ink">
+    <div style={vars} className="accent-scope flex min-h-screen flex-col bg-chalk text-ink">
       <a
         href="#main"
         onClick={(e) => {
@@ -205,7 +228,7 @@ export default function App() {
           </Suspense>
         </ErrorBoundary>
       </main>
-      <footer className="border-t border-line bg-white">
+      <footer className="border-t border-line bg-surface">
         <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-muted">
           <p>
             Unofficial fan site, not affiliated with the Premier League or any club. Fixtures, table, squads and match

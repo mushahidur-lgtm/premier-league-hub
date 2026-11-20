@@ -29,10 +29,10 @@ function Picker({ label, players, onPick }) {
         onChange={(e) => setQ(e.target.value)}
         placeholder="Type a player's name"
         autoComplete="off"
-        className="min-h-11 w-full rounded-md border border-line bg-white px-3"
+        className="min-h-11 w-full rounded-md border border-line bg-surface px-3"
       />
       {hits.length > 0 && (
-        <ul className="mt-1 divide-y divide-line rounded-md border border-line bg-white">
+        <ul className="mt-1 divide-y divide-line rounded-md border border-line bg-surface">
           {hits.map(({ player, clubSlug }) => {
             const club = clubBySlug(clubSlug);
             return (

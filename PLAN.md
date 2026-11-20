@@ -747,3 +747,29 @@ ESPN summary check (2026-11-20, 6 finished matches, `site.api…/all/summary?eve
 - `news`: ESPN's general football headlines, not about the match: not used. Related news comes from this site's
   own tagged stories instead.
 - `lastFiveGames`: each club's last five results (any competition). Not needed: form is already on club pages.
+
+### Phase 13: design and user experience
+
+Phase 12 (personalisation) is skipped for now at the owner's request (2026-11-20); its brief stays above.
+
+Survey (2026-11-20):
+
+- Colours are Tailwind tokens in `src/index.css` (`chalk`, `ink`, `muted`, `line`, `field`, `turf`, `win`, `loss`,
+  `draw`, `warn`) plus 24 `bg-white` surfaces, 3 `bg-ink text-white` pills, a hard-coded yellow-card colour and the
+  chart colours in `charts.jsx`. The club accent is computed against the light page only (`lib/accent.js`).
+- `win`, `loss`, `warn` and `draw` are used both as text on the page and as fills under white text. No single
+  colour can do both on a dark page (white text needs a dark fill; text on a dark page needs a light colour), so dark
+  mode gives those fills their own value.
+- GitLab Pages sends `Cache-Control: max-age=600` for every file and can't be configured (no custom headers), so
+  for up to 10 minutes after a deploy a returning visitor can get the previous `index.html`. Fixed in the app: the
+  build writes `version.json`; the app checks it uncached and offers a reload when a newer build is live.
+
+- [ ] Dark mode: tokens for both themes, a System / Light / Dark control (stored in `localStorage`, applied before
+      first paint), club accents and chart colours that pass AA on both, `color-scheme` for native controls
+- [ ] Responsive navigation: current page marked (`aria-current`) and visible at 375 px with the theme control
+- [ ] Skeleton loading in place of "Loading…" text, for sections and lazy pages
+- [ ] Empty and error states: consistent, with an icon and a next step
+- [ ] Search: "/" shortcut from anywhere, result count announced, clear button
+- [ ] Mobile standings, match cards, player cards: checked at 375 px, fixed where they fall short
+- [ ] New-version notice (the Pages caching above)
+- [ ] Tests (axe in dark mode too), README, deploy and live check

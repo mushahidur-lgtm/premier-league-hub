@@ -8,6 +8,7 @@
  */
 @theme {
   --color-chalk: #fafbf8;
+  --color-surface: #ffffff;
   --color-ink: #14201b;
   --color-muted: #4f5c55;
   --color-line: #d5ddd8;
@@ -17,6 +18,7 @@
   --color-loss: #b3261e;
   --color-draw: #5b6660;
   --color-warn: #8a4b00;
+  --color-card-yellow: #9a6b00;
   --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Barlow Condensed", "Barlow", ui-sans-serif, system-ui, sans-serif;
 }
@@ -36,6 +38,51 @@
   --kit-1: #1f5135;
   --kit-2: #14201b;
   color-scheme: light;
+}
+
+/*
+ * Dark theme (data-theme on <html>, set before first paint by index.html and kept by lib/theme.js).
+ * Same direction at night: floodlit pitch-side, turf-black surfaces, chalk text. Every pair passes AA.
+ * win / loss / warn / draw are text colours here (light), but stay dark where they are a fill under
+ * white text (the .bg-* rules below), since no one colour can be both.
+ */
+:root[data-theme="dark"] {
+  --color-chalk: #0e1512;
+  --color-surface: #151e1a;
+  --color-ink: #e6ece8;
+  --color-muted: #a7b4ac;
+  --color-line: #33413a;
+  --color-field: #1c2722;
+  --color-win: #6fcf97;
+  --color-loss: #ff8a80;
+  --color-draw: #b4beb8;
+  --color-warn: #f0b35a;
+  --color-card-yellow: #e8c04a;
+  color-scheme: dark;
+}
+:root[data-theme="dark"] .bg-win {
+  --color-win: #17663a;
+}
+:root[data-theme="dark"] .bg-loss {
+  --color-loss: #b3261e;
+}
+:root[data-theme="dark"] .bg-draw {
+  --color-draw: #5b6660;
+}
+:root[data-theme="dark"] .bg-warn {
+  --color-warn: #8a4b00;
+}
+
+/* The club accent: lib/accent.js computes a set for each theme (inline on the app root); this picks one. */
+.accent-scope {
+  --accent: var(--accent-l);
+  --accent-ink: var(--accent-ink-l);
+  --accent-soft: var(--accent-soft-l);
+}
+:root[data-theme="dark"] .accent-scope {
+  --accent: var(--accent-d);
+  --accent-ink: var(--accent-ink-d);
+  --accent-soft: var(--accent-soft-d);
 }
 
 html {

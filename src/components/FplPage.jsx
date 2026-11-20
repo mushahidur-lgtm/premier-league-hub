@@ -44,7 +44,7 @@ const VIEWS = [
   ["assistant", "Transfer assistant"],
   ["compare", "Compare"],
 ];
-const control = "min-h-11 rounded-md border border-line bg-white px-2";
+const control = "min-h-11 rounded-md border border-line bg-surface px-2";
 const PRICE_CAPS = [45, 50, 55, 60, 65, 70, 80, 90, 100, 120];
 const GAMEWEEK_CHOICES = [1, 3, 5];
 const LIST_LIMIT = 50;
@@ -91,7 +91,7 @@ function FixtureChip({ f }) {
     <span
       title={label}
       className={`num inline-flex items-center gap-1 rounded-sm px-1 text-xs leading-5 font-semibold whitespace-nowrap ${
-        FDR_STYLE[f.fdr] ?? "border border-line bg-white text-ink"
+        FDR_STYLE[f.fdr] ?? "border border-line bg-surface text-ink"
       }`}
     >
       <span aria-hidden="true">
@@ -213,7 +213,7 @@ function PlayerPicker({ label, players, onPick, exclude = null }) {
       {q.trim().length >= 2 && (
         <ul
           aria-label={`Players matching ${q.trim()}`}
-          className="divide-y divide-line rounded-md border border-line bg-white"
+          className="divide-y divide-line rounded-md border border-line bg-surface"
         >
           {found.length ? (
             found.map((p) => (
@@ -453,7 +453,7 @@ function OutSummary({ fpl, out, n }) {
   const run = fixtureRun(fpl.clubs[out.club], fromGameweek(fpl), n);
   const share = minutesShare(out, fpl.clubs[out.club]);
   return (
-    <div className="rounded-md border border-line bg-white p-3">
+    <div className="rounded-md border border-line bg-surface p-3">
       <p className="text-sm font-semibold text-muted">Player out</p>
       <PlayerName player={out} />
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">

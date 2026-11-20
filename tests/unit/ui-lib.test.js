@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { CLUBS } from "../../src/config/clubs.js";
-import { accentVars, contrast, DEFAULT_ACCENT, INK, luminance, readableOn, SURFACE } from "../../src/lib/accent.js";
+import {
+  accentVars,
+  contrast,
+  DARK,
+  DEFAULT_ACCENT,
+  INK,
+  luminance,
+  readableOn,
+  SURFACE,
+} from "../../src/lib/accent.js";
 import { formPoints, recentForm } from "../../src/lib/form.js";
 import { queryWords, search } from "../../src/lib/search.js";
 import { titleFor } from "../../src/lib/titles.js";
@@ -13,10 +22,16 @@ describe("accent", () => {
   });
   it.each(CLUBS.map((c) => [c.slug, c]))("%s gets an accent that passes AA as text and as a fill", (_s, club) => {
     const v = accentVars(club);
-    expect(contrast(v["--accent"], SURFACE)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(v["--accent-ink"], v["--accent"])).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(INK, v["--accent-soft"])).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(v["--accent"], v["--accent-soft"])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(v["--accent-l"], SURFACE)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(v["--accent-ink-l"], v["--accent-l"])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(INK, v["--accent-soft-l"])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(v["--accent-l"], v["--accent-soft-l"])).toBeGreaterThanOrEqual(4.5);
+    // Dark theme: on every dark surface text sits on, on its own tint, and as a fill.
+    for (const bg of [DARK.chalk, DARK.surface, DARK.field])
+      expect(contrast(v["--accent-d"], bg)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(v["--accent-ink-d"], v["--accent-d"])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(DARK.ink, v["--accent-soft-d"])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(v["--accent-d"], v["--accent-soft-d"])).toBeGreaterThanOrEqual(4.5);
   });
   it("keeps a colour that already passes and darkens one that doesn't", () => {
     expect(readableOn("#063672")).toBe("#063672");
@@ -25,7 +40,7 @@ describe("accent", () => {
     expect(contrast(readableOn(light), SURFACE)).toBeGreaterThanOrEqual(4.5);
   });
   it("falls back to the site accent with no club or a bad colour", () => {
-    expect(accentVars(null)["--accent"]).toBe(DEFAULT_ACCENT);
+    expect(accentVars(null)["--accent-l"]).toBe(DEFAULT_ACCENT);
     expect(readableOn("red")).toBe(DEFAULT_ACCENT);
   });
 });

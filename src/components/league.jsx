@@ -41,7 +41,7 @@ function GameweekPicker({ gameweeks, value, onChange }) {
         id="gameweek-select"
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="min-h-11 rounded-md border border-line bg-white px-2 font-semibold"
+        className="min-h-11 rounded-md border border-line bg-surface px-2 font-semibold"
       >
         {gameweeks.map((g) => (
           <option key={g.id} value={g.id}>
@@ -73,7 +73,7 @@ function FilterButtons({ value, onChange, counts }) {
           aria-pressed={value === key}
           onClick={() => onChange(key)}
           className={`min-h-11 rounded-md border px-3 text-sm font-semibold ${
-            value === key ? "border-ink bg-ink text-white" : "border-line bg-white hover:border-ink"
+            value === key ? "border-ink bg-ink text-chalk" : "border-line bg-surface hover:border-ink"
           }`}
         >
           {label} <span className="num">{counts[key]}</span>
