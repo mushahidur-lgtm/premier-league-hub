@@ -61,7 +61,8 @@ live from ESPN's CDN. The injury story in the squad shot is the made-up fixture 
     club and price, sortable.
   - _Transfer assistant_: pick the player to sell; enter the money in the bank and, optionally, what you paid
     (FPL's selling price keeps half of any rise, rounded down to £0.1m). It lists same-position players you can
-    afford whom FPL expects to be available (doubtful ones on request), sorted by the figure you choose. It can't
+    afford whom FPL expects to be available and no recent report says are injured (doubtful ones on request;
+    regular starters only, 60 %+ of their club's minutes, on request), sorted by the figure you choose. It can't
     see your FPL team, so it reminds you of the three-per-club limit instead of pretending to check it.
   - _Compare_: any two FPL players side by side, including FPL's xG, xA and projected points.
 - **Search** (`#/search?q=`) across clubs, players (all 20 squads) and stories.
@@ -108,7 +109,7 @@ de-duplicates, tags each story with clubs and players, and writes three same-ori
   `items`, `error`, `ms`) and `rosters[]` (`club`, `ok`, `players`, `error`), plus a `league` summary.
 - `data/fpl.json` (read only by the FPL page): FPL's pickable players (price in tenths of £1m, ownership, points,
   points per match, form, minutes, starts, status, chance of playing, news, xG, xA, projected points, and the ESPN
-  id where the player is matched, for a profile link), each club's matches played and next six gameweeks' fixtures
+  id and name where the player is matched: a profile link, and the injury cross-check against headlines), each club's matches played and next six gameweeks' fixtures
   with FPL's difficulty, the current and next gameweek with its deadline, and the squad rules from FPL's settings.
   Built from the two FPL responses league.json already fetches (no extra requests). If they can't be used, the live
   file is carried over unchanged (`carriedOver: true`, its own `asOf`); it never stops the news deploy.

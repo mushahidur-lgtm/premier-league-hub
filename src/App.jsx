@@ -5,7 +5,7 @@ import { SITE_NAME } from "./config/site.js";
 import { accentVars } from "./lib/accent.js";
 import { refreshAll, useAutoRefresh } from "./lib/data.js";
 import { lazyRetry } from "./lib/lazy.js";
-import { parseHash, toHash } from "./lib/route.js";
+import { pageKey, parseHash, toHash } from "./lib/route.js";
 import { useMyClub } from "./lib/storage.js";
 import { titleFor } from "./lib/titles.js";
 import { ErrorBoundary } from "./components/ui.jsx";
@@ -167,13 +167,17 @@ export default function App() {
     // Match, player and compare pages own their titles (they know the names only once data arrives).
     if (!["match", "player", "compare"].includes(route.name))
       document.title = titleFor(route, { clubName: pageClub?.name });
+  }, [routeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Only a new page moves focus: a filter or a typed amount changes the address too, and must keep its place.
+  const page = pageKey(route);
+  useEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
     main.current?.focus();
     window.scrollTo(0, 0);
-  }, [routeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [page]);
 
   return (
     <div style={vars} className="flex min-h-screen flex-col bg-chalk text-ink">

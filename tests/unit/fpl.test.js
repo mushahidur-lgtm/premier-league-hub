@@ -4,6 +4,7 @@ import { buildFpl, readClubFixtures, readPlayers, readRules } from "../../script
 import { validateFpl } from "../../scripts/lib/validate-data.mjs";
 import {
   availability,
+  espnSquads,
   findPlayers,
   fixtureRun,
   fmtPrice,
@@ -18,7 +19,7 @@ import {
   sortRows,
   transferBudget,
 } from "../../src/lib/fpl.js";
-import { parseHash, toHash } from "../../src/lib/route.js";
+import { pageKey, parseHash, toHash } from "../../src/lib/route.js";
 import { titleFor } from "../../src/lib/titles.js";
 
 const [A, B, C] = CLUBS;
@@ -300,5 +301,68 @@ describe("FPL route", () => {
     expect(bad).toMatchObject({ view: "players", out: null, bank: null, gws: null, pos: null, club: null, sort: null });
     expect(toHash(parseHash("#/fpl"))).toBe("#/fpl");
     expect(titleFor(parseHash("#/fpl?view=compare"))).toMatch(/^Compare FPL players/);
+  });
+});
+
+describe("pageKey", () => {
+  it("ignores filters, so changing one keeps focus; a new view or page is a new key", () => {
+    const k = (h) => pageKey(parseHash(h));
+    expect(k("#/fpl?view=assistant&out=1")).toBe(k("#/fpl?view=assistant&out=1&bank=15&sort=price"));
+    expect(k("#/fpl?view=assistant")).not.toBe(k("#/fpl?view=compare"));
+    expect(k("#/stats?club=a-b")).toBe(k("#/stats"));
+    expect(k("#/stats?view=players")).not.toBe(k("#/stats"));
+    expect(k("#/compare?a=1")).toBe(k("#/compare?a=1&b=2"));
+    expect(k("#/club/x")).not.toBe(k("#/club/y"));
+    expect(k("#/player/1")).not.toBe(k("#/player/2"));
+  });
+});
+
+describe("FPL and the news (rule 3)", () => {
+  const fpl = parseFpl(JSON.parse(JSON.stringify(buildFpl({ bootstrap: bootstrap(), fixtures, clubs, now }).fpl)));
+
+  it("a player FPL hasn't flagged but the news reports injured is doubtful, not available", () => {
+    const p = { ...fpl.players[0], status: "a", chance: null, espn: "77" };
+    expect(availability(p, true)).toBe("doubtful");
+    expect(availability({ ...p, status: "i", chance: 0 }, true)).toBe("out");
+    const out = fpl.players.find((x) => x.pos === p.pos && x.id !== p.id);
+    const data = { ...fpl, players: fpl.players.map((x) => (x.id === p.id ? p : x)) };
+    const ids = (opts) => replacements(data, out, { budget: 200, limit: 500, ...opts }).rows.map((r) => r.player.id);
+    expect(ids({})).toContain(p.id);
+    expect(ids({ reported: new Set(["77"]) })).not.toContain(p.id);
+    expect(ids({ reported: new Set(["77"]), includeDoubtful: true })).toContain(p.id);
+  });
+
+  it("groups matched players into squads with their ESPN names for the headline check", () => {
+    const players = [
+      { ...fpl.players[0], club: A.slug, espn: "1", espnName: "Ann One", espnLast: "One" },
+      { ...fpl.players[1], club: A.slug, espn: null, espnName: null, espnLast: null },
+      { ...fpl.players[2], club: B.slug, espn: "3", espnName: "Cy Three", espnLast: null },
+    ];
+    const squads = espnSquads(players);
+    expect(squads.get(A.slug)).toEqual([{ id: "1", name: "Ann One", lastName: "One" }]);
+    expect(squads.get(B.slug)).toEqual([{ id: "3", name: "Cy Three", lastName: null }]);
+  });
+
+  it("the pipeline adds ESPN names only to matched players", () => {
+    const teams = new Map(clubs.map((c, i) => [i + 1, c.slug]));
+    const players = readPlayers(bootstrap({ players: 3 }), teams, { 501: { fpl: 1 } }, [
+      { id: "501", name: "Full Name", lastName: "Name" },
+      { id: "502", name: "Other", lastName: null },
+    ]);
+    expect(players[0]).toMatchObject({ espn: "501", espnName: "Full Name", espnLast: "Name" });
+    expect(players[1]).toMatchObject({ espn: null, espnName: null, espnLast: null });
+  });
+});
+
+describe("regular starters", () => {
+  it("keeps only players with at least the given share of their club's minutes, unknown share excluded", () => {
+    const fpl = parseFpl(JSON.parse(JSON.stringify(buildFpl({ bootstrap: bootstrap(), fixtures, clubs, now }).fpl)));
+    const out = fpl.players.find((p) => p.pos === "FWD");
+    const all = replacements(fpl, out, { budget: 200, limit: 500 }).rows;
+    const regular = replacements(fpl, out, { budget: 200, limit: 500, minShare: 0.6 }).rows;
+    expect(regular.length).toBeLessThan(all.length);
+    expect(regular.every((r) => r.share != null && r.share >= 0.6)).toBe(true);
+    expect(parseHash("#/fpl?view=assistant&regular=1").regular).toBe(true);
+    expect(toHash(parseHash("#/fpl?view=assistant&regular=1"))).toContain("regular=1");
   });
 });

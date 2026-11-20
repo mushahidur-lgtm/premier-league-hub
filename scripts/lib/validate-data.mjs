@@ -295,6 +295,7 @@ export function validateFpl(fpl, { clubSlugs }) {
         !FPL_STATUSES.has(x.status) ||
         typeof x.news !== "string" ||
         !(x.espn === null || (typeof x.espn === "string" && /^\d+$/.test(x.espn))) ||
+        !["espnName", "espnLast"].every((k) => x[k] == null || typeof x[k] === "string") ||
         !["owned", "ppg", "form", "xg", "xa", "ep"].every((k) => numOrNull(x[k])) ||
         !["points", "minutes", "starts", "chance"].every((k) => intOrNull(x[k])),
     );

@@ -30,7 +30,7 @@ export const STATUSES = /** @type {const} */ (["a", "d", "i", "s", "u", "n"]);
  *   id: number, name: string, fullName: string, club: string, pos: string, price: number, owned: number | null,
  *   points: number | null, ppg: number | null, form: number | null, minutes: number | null, starts: number | null,
  *   status: string, chance: number | null, news: string, xg: number | null, xa: number | null,
- *   ep: number | null, espn: string | null
+ *   ep: number | null, espn: string | null, espnName: string | null, espnLast: string | null
  * }} FplPlayer
  * @typedef {{ gw: number | null, kickoff: string | null, opp: string, home: boolean, fdr: number | null }} FplFixture
  */
@@ -67,9 +67,12 @@ function readGameweek(bootstrap, /** @type {"is_current" | "is_next"} */ flag) {
  * @param {any} bootstrap
  * @param {Map<number, string>} teams FPL team id → club slug
  * @param {Record<string, { fpl: number }> | null} espnMatches league.json's `minutes` (ESPN id → FPL id)
+ * @param {{ id: string, name: string, lastName: string | null }[]} [squads] ESPN squad players: the matched
+ *   player's ESPN name, so the page can match injury headlines (rule 3) the way club pages do
  * @returns {FplPlayer[]}
  */
-export function readPlayers(bootstrap, teams, espnMatches) {
+export function readPlayers(bootstrap, teams, espnMatches, squads = []) {
+  const espnPeople = new Map(squads.map((s) => [s.id, s]));
   /** @type {Map<number, string>} */
   const pos = new Map();
   for (const t of Array.isArray(bootstrap?.element_types) ? bootstrap.element_types : [])
@@ -107,6 +110,8 @@ export function readPlayers(bootstrap, teams, espnMatches) {
       xa: num(e.expected_assists),
       ep: num(e.ep_next),
       espn: espnByFpl.get(e.id) ?? null,
+      espnName: espnPeople.get(espnByFpl.get(e.id) ?? "")?.name ?? null,
+      espnLast: espnPeople.get(espnByFpl.get(e.id) ?? "")?.lastName ?? null,
     });
   }
   return out;
@@ -152,15 +157,16 @@ export function readClubFixtures(fixtures, teams, fromGw, window = FIXTURE_WINDO
  * The whole fpl.json, or null with the reason when FPL's data can't be used (then the pipeline carries over
  * the live file).
  * @param {{ bootstrap: any, fixtures: any, clubs: { slug: string, abbr: string, espnId: string }[], now: Date,
- *   espnMatches?: Record<string, { fpl: number }> | null }} input
+ *   espnMatches?: Record<string, { fpl: number }> | null,
+ *   squads?: { id: string, name: string, lastName: string | null }[] }} input
  * @returns {{ fpl: any, problems: string[] }}
  */
-export function buildFpl({ bootstrap, fixtures, clubs, now, espnMatches = null }) {
+export function buildFpl({ bootstrap, fixtures, clubs, now, espnMatches = null, squads = [] }) {
   if (!bootstrap || !Array.isArray(fixtures)) return { fpl: null, problems: ["FPL data unavailable"] };
   const { map, unmatched } = mapTeams(bootstrap, clubs);
   if (unmatched.length || map.size !== clubs.length)
     return { fpl: null, problems: [`FPL teams not matched to clubs: ${unmatched.join(", ") || "none listed"}`] };
-  const players = readPlayers(bootstrap, map, espnMatches);
+  const players = readPlayers(bootstrap, map, espnMatches, squads);
   if (players.length < 100) return { fpl: null, problems: [`only ${players.length} FPL players`] };
   const current = readGameweek(bootstrap, "is_current");
   const next = readGameweek(bootstrap, "is_next");

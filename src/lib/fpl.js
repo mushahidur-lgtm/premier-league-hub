@@ -38,7 +38,8 @@ export const STATUS_NAMES = {
  * @typedef {{ id: number, name: string, fullName: string, club: string, pos: "GKP" | "DEF" | "MID" | "FWD",
  *   price: number, owned: number | null, points: number | null, ppg: number | null, form: number | null,
  *   minutes: number | null, starts: number | null, status: keyof typeof STATUS_NAMES, chance: number | null,
- *   news: string, xg: number | null, xa: number | null, ep: number | null, espn: string | null }} FplPlayer
+ *   news: string, xg: number | null, xa: number | null, ep: number | null, espn: string | null,
+ *   espnName: string | null, espnLast: string | null }} FplPlayer
  * @typedef {{ gw: number | null, kickoff: Date | null, opp: string, home: boolean, fdr: number | null }} FplFixture
  * @typedef {{ id: number, deadline: Date | null, finished: boolean }} FplGameweek
  * @typedef {{ squadSize: number | null, perClub: number | null, budget: number | null, sellOnFee: number | null }} FplRules
@@ -90,6 +91,8 @@ export function parseFpl(json) {
       xa: numOrNull(p.xa),
       ep: numOrNull(p.ep),
       espn: typeof p.espn === "string" && /^\d+$/.test(p.espn) ? p.espn : null,
+      espnName: typeof p.espnName === "string" ? p.espnName : null,
+      espnLast: typeof p.espnLast === "string" ? p.espnLast : null,
     }));
   /** @type {Fpl["clubs"]} */
   const clubs = {};
@@ -183,15 +186,46 @@ export function minutesShare(player, club) {
 }
 
 /**
- * Can he be expected to play next gameweek? "available" (no flag), "doubtful" (flagged 50–75 %) or "out"
- * (injured, suspended, unavailable, or flagged under 50 %).
+ * Can he be expected to play next gameweek? "available" (no FPL flag), "doubtful" (flagged 50–75 %) or "out"
+ * (injured, suspended, unavailable, or flagged under 50 %). `reported`: a recent reliable headline says he is
+ * injured or a doubt (rule 3). FPL's flags can lag the news, so a player FPL hasn't flagged but the news has
+ * is never "available": he counts as doubtful.
  * @param {FplPlayer} p
+ * @param {boolean} [reported]
  * @returns {"available" | "doubtful" | "out"}
  */
-export function availability(p) {
-  if (p.status === "a" && p.chance == null) return "available";
-  if (p.chance != null) return p.chance >= 100 ? "available" : p.chance >= 50 ? "doubtful" : "out";
-  return p.status === "d" ? "doubtful" : "out";
+export function availability(p, reported = false) {
+  const fpl =
+    p.status === "a" && p.chance == null
+      ? "available"
+      : p.chance != null
+        ? p.chance >= 100
+          ? "available"
+          : p.chance >= 50
+            ? "doubtful"
+            : "out"
+        : p.status === "d"
+          ? "doubtful"
+          : "out";
+  return fpl === "available" && reported ? "doubtful" : fpl;
+}
+
+/**
+ * FPL players matched to ESPN, as squads by club with their ESPN names: the candidates the injury
+ * cross-check (src/lib/injuries.js) reads headlines against, the same way club pages do.
+ * @param {FplPlayer[]} players
+ * @returns {Map<string, { id: string, name: string, lastName: string | null }[]>}
+ */
+export function espnSquads(players) {
+  /** @type {Map<string, { id: string, name: string, lastName: string | null }[]>} */
+  const out = new Map();
+  for (const p of players) {
+    if (!p.espn || !p.espnName) continue;
+    const list = out.get(p.club) ?? [];
+    list.push({ id: p.espn, name: p.espnName, lastName: p.espnLast });
+    out.set(p.club, list);
+  }
+  return out;
 }
 
 /** Sorts the assistant and the player list offer. Each one names the figure it uses; none is invented. */
@@ -215,15 +249,16 @@ export const sortKey = (key) => (key && key in SORTS ? /** @type {SortKey} */ (k
  * @param {Fpl} fpl
  * @param {FplPlayer[]} players
  * @param {number} n
+ * @param {Set<string>} [reported] ESPN ids of players a recent headline reports injured or a doubt
  * @returns {Row[]}
  */
-export function rows(fpl, players, n) {
+export function rows(fpl, players, n, reported = new Set()) {
   const from = fromGameweek(fpl);
   return players.map((player) => ({
     player,
     run: fixtureRun(fpl.clubs[player.club], from, n),
     share: minutesShare(player, fpl.clubs[player.club]),
-    availability: availability(player),
+    availability: availability(player, player.espn != null && reported.has(player.espn)),
   }));
 }
 
@@ -247,16 +282,24 @@ export function sortRows(list, key) {
 
 /**
  * Transfer assistant: who could replace `out` within `budget` (tenths)? Same position, not the same player,
- * price at most the budget, expected to be available (unless `includeDoubtful`, which adds doubtful players;
- * players ruled out never appear). Sorted by `sort`.
+ * price at most the budget, expected to be available (unless `includeDoubtful`, which adds doubtful players,
+ * including those only the news reports injured; players ruled out never appear). `minShare` (0–1) keeps only
+ * players who have played at least that share of their club's league minutes. Sorted by `sort`.
  * @param {Fpl} fpl
  * @param {FplPlayer} out
- * @param {{ budget: number, sort?: SortKey, n?: number, includeDoubtful?: boolean, limit?: number }} opts
+ * @param {{ budget: number, sort?: SortKey, n?: number, includeDoubtful?: boolean, limit?: number,
+ *   reported?: Set<string>, minShare?: number | null }} opts
  */
-export function replacements(fpl, out, { budget, sort = "form", n = 5, includeDoubtful = false, limit = 20 }) {
+export function replacements(
+  fpl,
+  out,
+  { budget, sort = "form", n = 5, includeDoubtful = false, limit = 20, reported = new Set(), minShare = null },
+) {
   const pool = fpl.players.filter((p) => p.pos === out.pos && p.id !== out.id && p.price <= budget);
-  const list = rows(fpl, pool, n).filter(
-    (r) => r.availability === "available" || (includeDoubtful && r.availability === "doubtful"),
+  const list = rows(fpl, pool, n, reported).filter(
+    (r) =>
+      (r.availability === "available" || (includeDoubtful && r.availability === "doubtful")) &&
+      (minShare == null || (r.share != null && r.share >= minShare)),
   );
   const sorted = sortRows(list, sort);
   return { total: sorted.length, rows: sorted.slice(0, limit) };

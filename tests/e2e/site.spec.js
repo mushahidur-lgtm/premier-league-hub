@@ -385,8 +385,12 @@ test("FPL transfer assistant: player out, budget, affordable alternatives, compa
   await expect(page).toHaveURL(/view=assistant/);
   await expect(page).toHaveURL(/out=\d+/);
   await expect(page).toHaveTitle(/^Transfer assistant · /);
-  await page.getByLabel("Money in the bank (£m)").fill("1.5");
+  // Typed key by key: each keystroke that reads as a price updates the address, and focus must stay put.
+  const bank = page.getByLabel("Money in the bank (£m)");
+  await bank.pressSequentially("1.5");
   await expect(page).toHaveURL(/bank=15/);
+  await expect(bank).toHaveValue("1.5");
+  await expect(bank).toBeFocused();
   const budgetLine = page.getByText(/to spend$/);
   await expect(budgetLine).toContainText("+ bank £1.5m");
   const total = Number((await budgetLine.locator("strong").last().textContent()).replace(/[£m]/g, ""));
@@ -435,6 +439,19 @@ test("FPL compare: pick two players by name", async ({ page }) => {
   await expect(page).toHaveURL(/a=\d+/);
   await expect(page.getByRole("table", { name: /compared with Player 2/ })).toBeVisible();
   await noOverflow(page);
+  await axeClean(page);
+});
+
+test("FPL and the news agree (rule 3): a reported injury shows even when FPL has no flag", async ({ page }) => {
+  // The fixture's BBC story reports this goalkeeper injured; FPL has no flag on him.
+  await page.goto(`./#/fpl?club=${RECORDED.club}&pos=GKP`);
+  const row = page.getByRole("table", { name: /FPL players sorted by/ }).getByRole("row", { name: /Arrizabalaga/ });
+  await expect(row.getByRole("link", { name: /Reported injured · BBC Sport · 2h ago/ })).toBeVisible();
+  await page.goto("./#/fpl?view=compare&a=2");
+  const compare = page.getByRole("table", { name: /compared with/ });
+  await expect(compare.getByRole("link", { name: /Reported injured · BBC Sport/ })).toBeVisible();
+  await expect(compare.getByRole("row", { name: /^FPL availability flag/ })).toContainText("No flag");
+  await expect(compare).not.toContainText("Available");
   await axeClean(page);
 });
 

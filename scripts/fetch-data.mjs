@@ -122,7 +122,11 @@ async function main() {
     minutes: league.file?.minutes ?? null,
     bootstrap: league.bootstrap,
   });
-  const fpl = await fplData(now, league);
+  const fpl = await fplData(
+    now,
+    league,
+    rosters.flatMap((r) => r.players),
+  );
   const items = buildNews(
     results.map((r) => ({ items: r.items, club: r.feed.club })),
     CLUBS,
@@ -292,9 +296,10 @@ async function leagueData(now, squads) {
  * and the page says FPL data is unavailable. Never blocks the news deploy.
  * @param {Date} now
  * @param {{ bootstrap: any, fixtures: any, file: any }} league
+ * @param {{ id: string, name: string, lastName: string | null }[]} squads ESPN squad players (names for rule 3)
  * @returns {Promise<{ file: any, problems: string[] }>}
  */
-async function fplData(now, league) {
+async function fplData(now, league, squads) {
   const slugs = { clubSlugs: new Set(CLUBS.map((c) => c.slug)) };
   const built = buildFpl({
     bootstrap: league.bootstrap,
@@ -302,6 +307,7 @@ async function fplData(now, league) {
     clubs: CLUBS,
     now,
     espnMatches: league.file?.minutes ?? null,
+    squads,
   });
   const problems = [...built.problems];
   if (built.fpl) {

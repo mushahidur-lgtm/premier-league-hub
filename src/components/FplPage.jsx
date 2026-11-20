@@ -1,9 +1,11 @@
-import { cloneElement, useId, useState } from "react";
+import { cloneElement, createContext, useContext, useId, useMemo, useState } from "react";
 import { ArrowLeftRight, Repeat } from "lucide-react";
 import { CLUBS, clubBySlug } from "../config/clubs.js";
 import { useSource } from "../lib/data.js";
-import { fmtDay, fmtFull } from "../lib/format.js";
+import { fmtDay, fmtFull, timeAgo } from "../lib/format.js";
+import { injuryReports, isAbsenceReport } from "../lib/injuries.js";
 import {
+  espnSquads,
   findPlayers,
   fixtureRun,
   fmtPrice,
@@ -23,7 +25,19 @@ import {
 import { toHash } from "../lib/route.js";
 import { titleFor } from "../lib/titles.js";
 import { Stat } from "./PlayerPage.jsx";
-import { Crest, FreshnessLine, Section, useTitle } from "./ui.jsx";
+import { Crest, FreshnessLine, Section, useStories, useTitle } from "./ui.jsx";
+
+/**
+ * Rule 3: recent reliable headlines reporting an FPL player injured or a doubt, by ESPN id. FPL's flags can
+ * lag club news, so the page shows the report and never calls such a player available.
+ * @type {import("react").Context<Map<string, import("../lib/injuries.js").InjuryReport>>}
+ */
+const Reports = createContext(new Map());
+/** ESPN ids with a report that he is injured or a doubt. */
+const useReported = () => {
+  const reports = useContext(Reports);
+  return useMemo(() => new Set([...reports].filter(([, r]) => isAbsenceReport(r)).map(([id]) => id)), [reports]);
+};
 
 const VIEWS = [
   ["players", "Players"],
@@ -34,6 +48,8 @@ const control = "min-h-11 rounded-md border border-line bg-white px-2";
 const PRICE_CAPS = [45, 50, 55, 60, 65, 70, 80, 90, 100, 120];
 const GAMEWEEK_CHOICES = [1, 3, 5];
 const LIST_LIMIT = 50;
+/** "Regular starters": at least this share of the club's league minutes this season. */
+const REGULAR_SHARE = 0.6;
 
 /** A labelled control: the label names the control by id, so its accessible name is exactly the label. */
 function Field({ label, hint = null, children }) {
@@ -108,19 +124,45 @@ function FixtureRun({ run }) {
   );
 }
 
-/** Availability, worded as FPL flags it; nothing when FPL has no flag. */
+/** A news report on the player (rule 3): what, where, when, linked to the story. */
+function ReportFlag({ report }) {
+  return (
+    <a
+      href={report.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={report.title}
+      className="inline-flex min-h-11 items-center text-xs font-semibold text-warn underline-offset-2 hover:underline sm:min-h-0"
+    >
+      {report.label} · {report.source} · {timeAgo(report.date)}
+      <span className="sr-only"> (opens {report.source} in a new tab)</span>
+    </a>
+  );
+}
+
+/** Availability, worded as FPL flags it, plus any news report; nothing when neither says anything. */
 function Flag({ player }) {
-  if (player.status === "a" && (player.chance == null || player.chance >= 100)) return null;
+  const report = useContext(Reports).get(player.espn ?? "");
+  const note = report && isAbsenceReport(report) ? <ReportFlag report={report} /> : null;
+  if (player.status === "a" && (player.chance == null || player.chance >= 100)) return note;
   const word = player.status === "a" ? "Flagged" : STATUS_NAMES[player.status];
   const text = player.chance != null ? `${word}, ${player.chance}% to play` : word;
   const out = player.chance != null ? player.chance < 50 : player.status !== "d";
-  return (
+  const flag = (
     <span
       title={player.news || text}
       className={`inline-flex rounded-sm px-1 text-xs leading-5 font-semibold ${out ? "bg-loss text-white" : "bg-warn text-white"}`}
     >
       {text}
     </span>
+  );
+  return note ? (
+    <>
+      {flag}
+      {note}
+    </>
+  ) : (
+    flag
   );
 }
 
@@ -337,7 +379,8 @@ function PlayersView({ fpl, route, go }) {
       (!route.club || p.club === route.club) &&
       (route.max == null || p.price <= route.max),
   );
-  const list = sortRows(rows(fpl, pool, n), sort).slice(0, LIST_LIMIT);
+  const reported = useReported();
+  const list = sortRows(rows(fpl, pool, n, reported), sort).slice(0, LIST_LIMIT);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3">
@@ -442,14 +485,24 @@ function AssistantView({ fpl, route, go }) {
   const out = route.out ? fpl.players.find((p) => String(p.id) === route.out) : null;
   const fee = fpl.rules.sellOnFee ?? 0.5;
   const budget = out ? transferBudget({ out, bank: route.bank ?? 0, paid: route.paid, fee }) : null;
+  const reported = useReported();
   const result =
-    out && budget ? replacements(fpl, out, { budget: budget.total, sort, n, includeDoubtful: route.doubtful }) : null;
+    out && budget
+      ? replacements(fpl, out, {
+          budget: budget.total,
+          sort,
+          n,
+          includeDoubtful: route.doubtful,
+          reported,
+          minShare: route.regular ? REGULAR_SHARE : null,
+        })
+      : null;
   return (
     <div className="space-y-5">
       <p className="max-w-3xl text-muted">
         Choose a player to sell. The assistant lists players in the same position you can afford, who FPL expects to be
-        available, with their form, playing time and next fixtures. It can’t see your FPL team, so check you’d still
-        have at most {fpl.rules.perClub ?? 3} players from one club.
+        available and no recent report says are injured, with their form, playing time and next fixtures. It can’t see
+        your FPL team, so check you’d still have at most {fpl.rules.perClub ?? 3} players from one club.
       </p>
       <PlayerPicker
         label={out ? "Change the player out" : "Player out"}
@@ -503,6 +556,15 @@ function AssistantView({ fpl, route, go }) {
               />
               Include doubtful players
             </label>
+            <label className="flex min-h-11 items-center gap-2 text-sm font-semibold">
+              <input
+                type="checkbox"
+                className="size-5"
+                checked={route.regular}
+                onChange={(e) => go({ regular: e.target.checked })}
+              />
+              Regular starters only ({Math.round(REGULAR_SHARE * 100)}%+ of minutes)
+            </label>
           </div>
           <div>
             <h2 className="font-display text-xl font-semibold">
@@ -511,7 +573,12 @@ function AssistantView({ fpl, route, go }) {
             <p className="mb-2 text-sm text-muted">
               {result.total} {result.total === 1 ? "player" : "players"}
               {result.total > result.rows.length ? `; top ${result.rows.length} shown` : ""}, sorted by “
-              {SORTS[sort].label}”. Players FPL rules out{route.doubtful ? "" : " or flags as doubtful"} aren’t listed.
+              {SORTS[sort].label}”. Not listed: players FPL rules out
+              {route.doubtful ? "" : ", or flags as doubtful, or the news reports injured"}
+              {route.regular
+                ? `, or who have played under ${Math.round(REGULAR_SHARE * 100)}% of their club’s minutes`
+                : ""}
+              .
             </p>
             {result.rows.length ? (
               <PlayerTable
@@ -567,8 +634,13 @@ function CompareView({ fpl, route, go }) {
     ["FPL’s projected points, next gameweek", (p) => one(p.ep)],
     ["Selected by", (p) => (p.owned == null ? null : `${one(p.owned)}%`)],
     [
-      "Availability",
-      (p) => (p.chance != null ? `${STATUS_NAMES[p.status]}, ${p.chance}% to play` : STATUS_NAMES[p.status]),
+      "FPL availability flag",
+      (p) =>
+        p.chance != null
+          ? `${STATUS_NAMES[p.status]}, ${p.chance}% to play`
+          : p.status === "a"
+            ? "No flag"
+            : STATUS_NAMES[p.status],
     ],
   ];
   return (
@@ -663,6 +735,17 @@ function GameweekLine({ fpl }) {
 
 export default function FplPage({ route }) {
   const state = useSource("fpl");
+  const news = useSource("news");
+  const stories = useStories(news.data);
+  const fplPlayers = state.data?.players;
+  const reports = useMemo(() => {
+    /** @type {Map<string, any>} */
+    const all = new Map();
+    if (!fplPlayers || !stories.length) return all;
+    for (const squad of espnSquads(fplPlayers).values())
+      for (const [id, r] of injuryReports(stories, squad)) all.set(id, r);
+    return all;
+  }, [fplPlayers, stories]);
   useTitle(titleFor(route));
   /** Filters live in the address; changing one replaces the entry so Back leaves the page. */
   const go = (patch) => window.location.replace(toHash({ ...route, ...patch }));
@@ -700,7 +783,7 @@ export default function FplPage({ route }) {
         empty="Fantasy Premier League data isn’t available yet."
       >
         {(fpl) => (
-          <>
+          <Reports.Provider value={reports}>
             {route.view === "assistant" ? (
               <AssistantView fpl={fpl} route={route} go={go} />
             ) : route.view === "compare" ? (
@@ -712,7 +795,11 @@ export default function FplPage({ route }) {
               label="Source: Fantasy Premier League public data, collected by this site’s pipeline every 4 hours"
               at={state.asOf}
             />
-          </>
+            <FreshnessLine
+              label="Injury notes: recent headlines from reliable outlets (this site's news feeds), shown where FPL's flags may lag"
+              at={news.asOf}
+            />
+          </Reports.Provider>
         )}
       </Section>
     </div>

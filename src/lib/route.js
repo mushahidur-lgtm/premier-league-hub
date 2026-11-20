@@ -10,7 +10,7 @@
  * @typedef {"teams" | "players" | "progression"} StatsView
  * @typedef {{ view: "players" | "assistant" | "compare", pos: string | null, club: string | null,
  *   max: number | null, sort: string | null, out: string | null, bank: number | null, paid: number | null,
- *   gws: number | null, doubtful: boolean, a: string | null, b: string | null }} FplRoute
+ *   gws: number | null, doubtful: boolean, regular: boolean, a: string | null, b: string | null }} FplRoute
  * Prices (`max`, `bank`, `paid`) are in tenths of £1m, as FPL stores them.
  */
 
@@ -96,6 +96,7 @@ export function parseHash(hash) {
       paid: price("paid"),
       gws: FPL_GAMEWEEKS.includes(gws) ? gws : null,
       doubtful: q.get("doubtful") === "1",
+      regular: q.get("regular") === "1",
       a: id("a"),
       b: id("b"),
     };
@@ -104,6 +105,32 @@ export function parseHash(hash) {
     return { name: "search", query: new URLSearchParams(queryPart).get("q") ?? "" };
   }
   return { name: "not-found", path: pathPart };
+}
+
+/**
+ * Which page a route shows, ignoring its filters: changing a filter (or typing an amount) changes the address
+ * but not the page, so focus and scroll stay where the user is. A new view, club, match or player is a new page.
+ * @param {Route} route
+ * @returns {string}
+ */
+export function pageKey(route) {
+  switch (route.name) {
+    case "club":
+      return `club/${route.slug}`;
+    case "match":
+      return `match/${route.eventId}`;
+    case "player":
+      return `player/${route.playerId}`;
+    case "stats":
+    case "fpl":
+      return `${route.name}/${route.view}`;
+    case "search":
+      return `search/${route.query}`;
+    case "not-found":
+      return `not-found/${route.path}`;
+    default:
+      return route.name;
+  }
 }
 
 /**
@@ -146,6 +173,7 @@ export function toHash(route) {
         if (v != null && v !== "") q.set(k, String(v));
       }
       if (route.doubtful) q.set("doubtful", "1");
+      if (route.regular) q.set("regular", "1");
       return q.size ? `#/fpl?${q}` : "#/fpl";
     }
     case "search":

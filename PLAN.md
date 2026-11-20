@@ -646,10 +646,20 @@ fixtures and history) and rate limits before building the transfer assistant. Ou
 - [x] FPL section `#/fpl`: players (price, ownership, points, form, upcoming fixtures and difficulty), filters
 - [x] Transfer assistant: player out, budget calculator (bank + selling price by FPL's sell-on rule), alternatives
       by budget, form, fixtures and playing time; FPL player comparison
-- [x] Unit and e2e tests; README (with a screenshot); CLAUDE.md route and data lists. Local: 584 unit tests in 31
-      files (15 new in `fpl.test.js`), 60 e2e (20 tests × 3 widths; 4 new FPL tests with axe and overflow checks, plus
-      an FPL route in the reload test),
-      lint/typecheck/format clean; main chunk 87 KB gzip (was 85: `parseFpl` sits with the data layer), FPL chunk 6 KB
+- [x] Rule 3 on the FPL page: `fpl.json` carries the ESPN name of each matched player, so the page runs the
+      club pages' injury cross-check (`injuryReports`) over the news; a player FPL hasn't flagged but a recent
+      reliable headline reports injured or a doubt shows "Reported injured · outlet · time", counts as doubtful (left
+      out of the assistant unless doubtful players are included), and the comparison says "No flag", never "Available"
+- [x] Assistant filter "Regular starters only" (60 %+ of the club's league minutes): on live data, players with
+      10–40 % of the minutes reached the top 20 on form
+- [x] Fixed site-wide: changing a filter or typing an amount moved focus to the main region and scrolled to the top
+      (the "new page" effect ran on every address change). It now runs on `pageKey(route)`: page and view, not
+      filters. Also fixes the Statistics filters and the compare pickers.
+- [x] Unit and e2e tests; README (with a screenshot); CLAUDE.md route and data lists. Local: 589 unit tests in 31
+      files (20 in `fpl.test.js`), 63 e2e (21 tests × 3 widths; 5 new FPL tests with axe and overflow checks, a
+      key-by-key typing test that focus stays put, the rule-3 note, plus an FPL route in the reload test);
+      lint/typecheck/format clean; main chunk 87 KB gzip (was 85: `parseFpl` sits with the data layer), FPL chunk
+      7 KB gzip
 - [ ] Deploy and live check
 
 FPL investigation (2026-11-20, from the pipeline's user agent):
