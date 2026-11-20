@@ -33,6 +33,11 @@ export async function mockAll(page, { fail } = {}) {
           ? route.fulfill(json(load("summary.json")))
           : route.fulfill(json("{}", 404));
       }
+      const athlete = /\/athletes\/(\d+)(\/gamelog)?$/.exec(url);
+      if (athlete) {
+        if (athlete[1] !== RECORDED.playerId) return route.fulfill(json("{}", 404));
+        return route.fulfill(json(load(athlete[2] ? "gamelog.json" : "athlete.json")));
+      }
       const team = url.match(/\/teams\/(\d+)\/(schedule|roster)/);
       if (team) {
         const [, id, kind] = team;

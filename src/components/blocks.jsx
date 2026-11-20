@@ -4,6 +4,7 @@ import { toHash } from "../lib/route.js";
 import { TIERS } from "../lib/sources.js";
 import { matchPhase } from "../lib/hero.js";
 import { CATEGORY_SHORT } from "../lib/news.js";
+import { isAbsenceReport } from "../lib/injuries.js";
 import { Countdown, Crest, FormMini, ResultChip, TeamLink } from "./ui.jsx";
 
 const matchHref = (m) => toHash({ name: "match", eventId: m.id });
@@ -407,5 +408,26 @@ export function ClubGrid({ clubs }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** "Reported injured · BBC Sport · 3h ago", linked to the story, with its headline. */
+export function ReportNote({ report, now }) {
+  const tone = isAbsenceReport(report) ? "text-warn" : "text-muted";
+  return (
+    <a
+      href={report.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-0.5 block text-sm underline-offset-2 hover:underline"
+    >
+      <span className={`font-semibold ${tone}`}>{report.label}</span>
+      <span className="text-muted">
+        {" "}
+        · {report.source} · <time dateTime={report.date.toISOString()}>{timeAgo(report.date, now)}</time>
+      </span>
+      <span className="block text-muted italic">“{report.title}”</span>
+      <span className="sr-only"> (opens {report.source} in a new tab)</span>
+    </a>
   );
 }

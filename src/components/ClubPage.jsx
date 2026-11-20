@@ -3,13 +3,14 @@ import { Star } from "lucide-react";
 import { useSource } from "../lib/data.js";
 import { AVAILABILITY, isReportedAbsent, summarizeAvailability } from "../lib/availability.js";
 import { recentForm } from "../lib/form.js";
-import { ordinal, timeAgo } from "../lib/format.js";
+import { ordinal } from "../lib/format.js";
 import { injuryReports, isAbsenceReport } from "../lib/injuries.js";
 import { pickNextMatch } from "../lib/hero.js";
 import { forClub, relevance } from "../lib/news.js";
 import { gapsLine, tableGaps } from "../lib/standings.js";
+import { toHash } from "../lib/route.js";
 import { useMyClub } from "../lib/storage.js";
-import { FormStrip, LeagueTable, MatchRow, MatchStrip, StoryList } from "./blocks.jsx";
+import { FormStrip, LeagueTable, MatchRow, MatchStrip, ReportNote, StoryList } from "./blocks.jsx";
 import { btn, btnAccent, Crest, Section, useStories } from "./ui.jsx";
 
 function Standing({ club, standings, schedule }) {
@@ -43,27 +44,6 @@ function Standing({ club, standings, schedule }) {
         );
       }}
     </Section>
-  );
-}
-
-/** "Reported injured · BBC Sport · 3h ago", linked to the story, with its headline. */
-function ReportNote({ report, now }) {
-  const tone = isAbsenceReport(report) ? "text-warn" : "text-muted";
-  return (
-    <a
-      href={report.link}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="mt-0.5 block text-sm underline-offset-2 hover:underline"
-    >
-      <span className={`font-semibold ${tone}`}>{report.label}</span>
-      <span className="text-muted">
-        {" "}
-        · {report.source} · <time dateTime={report.date.toISOString()}>{timeAgo(report.date, now)}</time>
-      </span>
-      <span className="block text-muted italic">“{report.title}”</span>
-      <span className="sr-only"> (opens {report.source} in a new tab)</span>
-    </a>
   );
 }
 
@@ -123,7 +103,12 @@ function Squad({ club }) {
                         <li key={p.id} className="flex items-baseline gap-3 py-1.5">
                           <span className="num w-7 shrink-0 text-right text-lg text-muted">{p.jersey}</span>
                           <span className="min-w-0 flex-1">
-                            <span className="font-semibold">{p.name}</span>
+                            <a
+                              href={toHash({ name: "player", playerId: p.id })}
+                              className="font-semibold underline-offset-2 hover:underline"
+                            >
+                              {p.name}
+                            </a>
                             {p.position && <span className="text-sm text-muted"> · {p.position}</span>}
                             {report && <ReportNote report={report} now={now} />}
                           </span>

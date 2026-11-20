@@ -14,6 +14,8 @@ import Home from "./components/Home.jsx";
 const ClubPage = lazyRetry(() => import("./components/ClubPage.jsx"));
 const MatchPage = lazyRetry(() => import("./components/MatchPage.jsx"));
 const SearchPage = lazyRetry(() => import("./components/SearchPage.jsx"));
+const PlayerPage = lazyRetry(() => import("./components/PlayerPage.jsx"));
+const ComparePage = lazyRetry(() => import("./components/ComparePage.jsx"));
 
 function useRoute() {
   const [route, setRoute] = useState(() => parseHash(window.location.hash));
@@ -111,6 +113,10 @@ function Page({ route, myClub }) {
     }
     case "match":
       return <MatchPage eventId={route.eventId} />;
+    case "player":
+      return <PlayerPage playerId={route.playerId} />;
+    case "compare":
+      return <ComparePage a={route.a} b={route.b} />;
     case "search":
       return <SearchPage query={route.query} />;
     default:
@@ -134,7 +140,9 @@ export default function App() {
   const first = useRef(true);
   const routeKey = window.location.hash;
   useEffect(() => {
-    if (route.name !== "match") document.title = titleFor(route, { clubName: pageClub?.name });
+    // Match, player and compare pages own their titles (they know the names only once data arrives).
+    if (!["match", "player", "compare"].includes(route.name))
+      document.title = titleFor(route, { clubName: pageClub?.name });
     if (first.current) {
       first.current = false;
       return;

@@ -114,6 +114,62 @@ test("without league.json the fixtures fall back to ESPN's scoreboard, and the l
   await expect(page.getByRole("columnheader", { name: "Form" })).toHaveCount(0);
 });
 
+test("player profile: bio, availability, season figures, recent matches", async ({ page }) => {
+  // Reached from the squad list on the club page.
+  await page.goto(`./#/club/${RECORDED.club}`);
+  const athlete = (await import("./fixtures/athlete.json", { with: { type: "json" } })).default.athlete;
+  await page
+    .locator("section[aria-labelledby=squad-heading]")
+    .getByRole("link", { name: athlete.displayName, exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`#/player/${RECORDED.playerId}$`));
+  await expect(page.getByRole("heading", { level: 1, name: athlete.displayName })).toBeVisible();
+  await expect(page).toHaveTitle(`${athlete.displayName} · Premier League Hub`);
+  const profile = page.locator("section[aria-labelledby=player-heading]");
+  await expect(profile.getByText("Shirt number")).toBeVisible();
+  await expect(profile.getByText(athlete.citizenship)).toBeVisible();
+  // ESPN has no photo for most players: a labelled placeholder, never a guessed image.
+  await expect(profile.getByText("No photo from ESPN")).toBeVisible();
+
+  const season = page.locator("section[aria-labelledby=season-heading]");
+  await expect(season.getByText("Appearances")).toBeVisible();
+  await expect(season.getByText(/^Minutes: Fantasy Premier League/)).toBeVisible();
+  await expect(season.getByText(/it is not a zero/)).toBeVisible();
+
+  const recent = page.locator("section[aria-labelledby=recent-heading]");
+  await expect(recent.locator("tbody tr").first()).toBeVisible();
+  await expect(recent.getByRole("link", { name: /match centre/ }).first()).toHaveAttribute("href", /#\/match\/\d+/);
+  await noOverflow(page);
+  await axeClean(page);
+
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1, name: athlete.displayName })).toBeVisible();
+});
+
+test("compare two players from the same season, with unavailable figures marked", async ({ page }) => {
+  await page.goto(`./#/player/${RECORDED.playerId}`);
+  await page.getByRole("link", { name: "Compare" }).click();
+  await expect(page).toHaveURL(new RegExp(`#/compare\\?a=${RECORDED.playerId}$`));
+  await expect(page.getByRole("heading", { level: 1, name: "Compare players" })).toBeVisible();
+
+  const roster = (await import("./fixtures/roster.json", { with: { type: "json" } })).default;
+  const other = roster.athletes.find((a) => a.id === RECORDED.otherPlayerId);
+  await page.getByLabel("Second player").fill(other.lastName);
+  await page.getByRole("button", { name: new RegExp(other.displayName) }).click();
+  await expect(page).toHaveURL(new RegExp(`b=${RECORDED.otherPlayerId}`));
+
+  const table = page.getByRole("table", { name: /season figures/ });
+  await expect(table.getByRole("rowheader", { name: "Goals", exact: true })).toBeVisible();
+  await expect(table.getByRole("rowheader", { name: /Minutes played/ })).toBeVisible();
+  await expect(page).toHaveTitle(/ v .* · Compare players · Premier League Hub$/);
+  await noOverflow(page);
+  await axeClean(page);
+
+  // A player id that isn't in any squad says so instead of showing nothing.
+  await page.goto("./#/compare?a=1&b=2");
+  await expect(page.getByText("No player with id 1 in the current Premier League squads.")).toBeVisible();
+});
+
 test("club page: matches, position, form, news and squad", async ({ page }) => {
   await page.goto(`./#/club/${RECORDED.club}`);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

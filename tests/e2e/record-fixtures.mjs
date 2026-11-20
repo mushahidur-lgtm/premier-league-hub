@@ -36,6 +36,41 @@ const summary = Object.fromEntries(
 const news = await get(`${SITE}/news.json`);
 const meta = await get(`${SITE}/meta.json`);
 const league = await get(`${SITE}/league.json`);
+// Two squad players with league appearances: one with a recorded profile and match log, both for comparing.
+const regulars = roster.athletes.filter((a) =>
+  a.statistics?.splits?.categories?.some((c) => c.stats?.some((s) => s.name === "appearances" && s.value > 0)),
+);
+const [player, other] = regulars;
+const ATHLETES = "https://site.web.api.espn.com/apis/common/v3/sports/soccer/eng.1/athletes";
+const bio = await get(`${ATHLETES}/${player.id}`);
+const log = await get(`${ATHLETES}/${player.id}/gamelog`);
+// Only the parts the parsers read (no links, videos or tracking ids).
+const keep = [
+  "id",
+  "displayName",
+  "fullName",
+  "firstName",
+  "lastName",
+  "age",
+  "displayDOB",
+  "citizenship",
+  "flag",
+  "position",
+  "jersey",
+  "displayJersey",
+  "displayHeight",
+  "displayWeight",
+  "headshot",
+  "status",
+];
+const athlete = { athlete: Object.fromEntries(keep.map((k) => [k, bio.athlete[k]])) };
+athlete.athlete.team = { id: bio.athlete.team?.id, displayName: bio.athlete.team?.displayName };
+const gamelog = { names: log.names, labels: log.labels, events: log.events, seasonTypes: log.seasonTypes };
+for (const e of Object.values(gamelog.events)) {
+  delete e.links;
+  if (e.opponent) e.opponent = { id: e.opponent.id, displayName: e.opponent.displayName };
+  if (e.team) e.team = { id: e.team.id };
+}
 news.items = news.items.slice(0, 120); // keeps the fixture small; enough for every section
 // One made-up injury story about a squad player ESPN lists as fine, so the e2e tests always exercise
 // the "reported injured" note (rule 3) whatever the real news was on the day.
@@ -63,6 +98,15 @@ await Promise.all([
   save("news.json", news),
   save("meta.json", meta),
   save("league.json", league),
-  save("recorded.json", { recordedAt, club: club.slug, espnId: club.espnId, eventId: last.id }),
+  save("athlete.json", athlete),
+  save("gamelog.json", gamelog),
+  save("recorded.json", {
+    recordedAt,
+    club: club.slug,
+    espnId: club.espnId,
+    eventId: last.id,
+    playerId: player.id,
+    otherPlayerId: other.id,
+  }),
 ]);
 console.log(JSON.stringify({ recordedAt, club: club.slug, eventId: last.id }));

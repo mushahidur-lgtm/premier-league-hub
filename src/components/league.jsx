@@ -213,7 +213,12 @@ function LeaderTable({ title, unit, list }) {
                   <td className="py-1.5 pl-2">
                     <span className="flex min-w-0 items-center gap-2">
                       {club && <Crest espnId={club.espnId} size={18} />}
-                      <span className="min-w-0 truncate">{p.name}</span>
+                      <a
+                        href={toHash({ name: "player", playerId: p.id })}
+                        className="inline-flex min-h-11 min-w-0 items-center truncate underline-offset-2 hover:underline sm:min-h-0"
+                      >
+                        {p.name}
+                      </a>
                       {club && (
                         <a
                           href={toHash({ name: "club", slug: club.slug })}
