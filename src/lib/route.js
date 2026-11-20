@@ -5,9 +5,17 @@
  *   | { name: "player", playerId: string } | { name: "compare", a: string | null, b: string | null }
  *   | { name: "stats", view: StatsView, season: number | null, clubs: string[], player: string | null,
  *       metric: string | null, per: boolean }
+ *   | { name: "fpl" } & FplRoute
  *   | { name: "search", query: string } | { name: "not-found", path: string }} Route
  * @typedef {"teams" | "players" | "progression"} StatsView
+ * @typedef {{ view: "players" | "assistant" | "compare", pos: string | null, club: string | null,
+ *   max: number | null, sort: string | null, out: string | null, bank: number | null, paid: number | null,
+ *   gws: number | null, doubtful: boolean, a: string | null, b: string | null }} FplRoute
+ * Prices (`max`, `bank`, `paid`) are in tenths of £1m, as FPL stores them.
  */
+
+export const FPL_POSITIONS = ["GKP", "DEF", "MID", "FWD"];
+export const FPL_GAMEWEEKS = [1, 3, 5];
 
 const SLUG = /^[a-z0-9-]+$/;
 const YEAR = /^[0-9]{4}$/;
@@ -60,6 +68,38 @@ export function parseHash(hash) {
       per: q.get("per") === "1",
     };
   }
+  if (parts[0] === "fpl" && parts.length === 1) {
+    const q = new URLSearchParams(queryPart);
+    const view = q.get("view");
+    const id = (/** @type {string} */ k) => {
+      const v = q.get(k) ?? "";
+      return DIGITS.test(v) && v.length <= 6 ? v : null;
+    };
+    /** A price in tenths, within 0–£200.0m. @param {string} k */
+    const price = (k) => {
+      const v = id(k);
+      return v != null && Number(v) <= 2000 ? Number(v) : null;
+    };
+    const pos = q.get("pos") ?? "";
+    const club = q.get("club") ?? "";
+    const sort = q.get("sort") ?? "";
+    const gws = Number(q.get("gws"));
+    return {
+      name: "fpl",
+      view: view === "assistant" || view === "compare" ? view : "players",
+      pos: FPL_POSITIONS.includes(pos) ? pos : null,
+      club: SLUG.test(club) ? club : null,
+      max: price("max"),
+      sort: WORD.test(sort) ? sort : null,
+      out: id("out"),
+      bank: price("bank"),
+      paid: price("paid"),
+      gws: FPL_GAMEWEEKS.includes(gws) ? gws : null,
+      doubtful: q.get("doubtful") === "1",
+      a: id("a"),
+      b: id("b"),
+    };
+  }
   if (parts[0] === "search" && parts.length === 1) {
     return { name: "search", query: new URLSearchParams(queryPart).get("q") ?? "" };
   }
@@ -97,6 +137,16 @@ export function toHash(route) {
       if (route.per) q.set("per", "1");
       // Commas between club slugs stay readable in a shared link; they need no escaping in a hash.
       return q.size ? `#/stats?${String(q).replace(/%2C/g, ",")}` : "#/stats";
+    }
+    case "fpl": {
+      const q = new URLSearchParams();
+      if (route.view && route.view !== "players") q.set("view", route.view);
+      for (const k of /** @type {const} */ (["pos", "club", "max", "sort", "out", "bank", "paid", "gws", "a", "b"])) {
+        const v = route[k];
+        if (v != null && v !== "") q.set(k, String(v));
+      }
+      if (route.doubtful) q.set("doubtful", "1");
+      return q.size ? `#/fpl?${q}` : "#/fpl";
     }
     case "search":
       return route.query ? `#/search?q=${encodeURIComponent(route.query)}` : "#/search";

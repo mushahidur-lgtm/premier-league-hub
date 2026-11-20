@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from "react";
-import { ChartColumn, RefreshCw, Search } from "lucide-react";
+import { ChartColumn, RefreshCw, Search, Shirt } from "lucide-react";
 import { CLUBS, clubBySlug } from "./config/clubs.js";
 import { SITE_NAME } from "./config/site.js";
 import { accentVars } from "./lib/accent.js";
@@ -17,6 +17,7 @@ const SearchPage = lazyRetry(() => import("./components/SearchPage.jsx"));
 const PlayerPage = lazyRetry(() => import("./components/PlayerPage.jsx"));
 const ComparePage = lazyRetry(() => import("./components/ComparePage.jsx"));
 const StatsPage = lazyRetry(() => import("./components/StatsPage.jsx"));
+const FplPage = lazyRetry(() => import("./components/FplPage.jsx"));
 
 function useRoute() {
   const [route, setRoute] = useState(() => parseHash(window.location.hash));
@@ -73,6 +74,17 @@ function Header() {
             <ChartColumn aria-hidden="true" className="size-5" />
             <span className="sr-only sm:not-sr-only">Statistics</span>
           </a>
+          <a
+            href="#/fpl"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md px-2 font-semibold hover:bg-field"
+          >
+            <Shirt aria-hidden="true" className="size-5" />
+            <span className="sr-only sm:not-sr-only">
+              <abbr title="Fantasy Premier League" className="no-underline">
+                FPL
+              </abbr>
+            </span>
+          </a>
           <ClubPicker />
           <button
             type="button"
@@ -127,6 +139,8 @@ function Page({ route, myClub }) {
       return <ComparePage a={route.a} b={route.b} />;
     case "stats":
       return <StatsPage route={route} myClub={myClub} />;
+    case "fpl":
+      return <FplPage route={route} />;
     case "search":
       return <SearchPage query={route.query} />;
     default:

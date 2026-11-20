@@ -354,6 +354,99 @@ test("skip link moves focus to the content", async ({ page }) => {
   await expect(page.locator("#main")).toBeFocused();
 });
 
+test("FPL players: filters and sort kept in the address, fixtures with difficulty", async ({ page }) => {
+  await page.goto("./#/fpl");
+  await expect(page).toHaveTitle(/^Fantasy Premier League · /);
+  const table = page.getByRole("table", { name: /FPL players sorted by/ });
+  await expect(table.locator("tbody tr").first()).toBeVisible();
+  await expect(page.getByText(/Gameweek \d+ \(FPL\)/).first()).toBeVisible();
+  await page.getByLabel("Position").selectOption("DEF");
+  await page.getByLabel("Sort by").selectOption("fixtures");
+  await expect(page).toHaveURL(/pos=DEF/);
+  await expect(page).toHaveURL(/sort=fixtures/);
+  // Every listed player is a defender; every fixture chip names its difficulty.
+  await expect(table.locator("tbody tr").first()).toContainText("DEF");
+  await expect(table.getByText(/difficulty [1-5]/).first()).toBeAttached();
+  await page.reload();
+  await expect(page.getByLabel("Position")).toHaveValue("DEF");
+  await expect(page.getByLabel("Sort by")).toHaveValue("fixtures");
+  await expect(page.getByText(/Source: Fantasy Premier League public data/)).toBeVisible();
+  await noOverflow(page);
+  await axeClean(page);
+});
+
+test("FPL transfer assistant: player out, budget, affordable alternatives, compare", async ({ page }) => {
+  await page.goto("./#/fpl?pos=MID");
+  const first = page
+    .getByRole("table", { name: /FPL players sorted by/ })
+    .locator("tbody tr")
+    .first();
+  await first.getByRole("link", { name: /^Replace/ }).click();
+  await expect(page).toHaveURL(/view=assistant/);
+  await expect(page).toHaveURL(/out=\d+/);
+  await expect(page).toHaveTitle(/^Transfer assistant · /);
+  await page.getByLabel("Money in the bank (£m)").fill("1.5");
+  await expect(page).toHaveURL(/bank=15/);
+  const budgetLine = page.getByText(/to spend$/);
+  await expect(budgetLine).toContainText("+ bank £1.5m");
+  const total = Number((await budgetLine.locator("strong").last().textContent()).replace(/[£m]/g, ""));
+  const results = page.getByRole("table", { name: /Possible replacements for/ });
+  await expect(results.locator("tbody tr").first()).toBeVisible();
+  // All midfielders, none dearer than the budget.
+  const prices = await results.locator("tbody tr td:nth-child(2)").allTextContents();
+  expect(prices.length).toBeGreaterThan(0);
+  for (const p of prices) expect(Number(p.replace(/[£m]/g, ""))).toBeLessThanOrEqual(total);
+  await expect(results.locator("tbody tr th")).toContainText(Array(prices.length).fill("MID"));
+  await expect(page.getByText(/at most 3 players from one club/)).toBeVisible();
+  await noOverflow(page);
+  await axeClean(page);
+  // A price paid lower than today's: FPL's selling price is below the current price.
+  await page.getByLabel("Price you paid (£m, optional)").fill("4.0");
+  await expect(page).toHaveURL(/paid=40/);
+  await expect(page.getByText(/FPL pays the price you paid plus 50%/)).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Money in the bank (£m)")).toHaveValue("1.5");
+  await results
+    .locator("tbody tr")
+    .first()
+    .getByRole("link", { name: /^Compare/ })
+    .click();
+  await expect(page).toHaveURL(/view=compare/);
+  await expect(page).toHaveURL(/[?&]b=\d+/);
+  const compare = page.getByRole("table", { name: /compared with/ });
+  await expect(compare.getByRole("row", { name: /^Total points/ })).toBeVisible();
+  await expect(compare.getByRole("row", { name: /^Next 3 gameweeks/ })).toBeVisible();
+  await noOverflow(page);
+  await axeClean(page);
+});
+
+test("FPL compare: pick two players by name", async ({ page }) => {
+  await page.goto("./#/fpl?view=compare");
+  await expect(page.getByText("Choose two players to compare their FPL figures.")).toBeVisible();
+  const picker = page.getByLabel("Player 1", { exact: true });
+  await picker.fill("a");
+  await expect(page.getByRole("list", { name: /Players matching/ })).toHaveCount(0);
+  await picker.fill("ar");
+  await page
+    .getByRole("list", { name: /Players matching ar/ })
+    .getByRole("button")
+    .first()
+    .click();
+  await expect(page).toHaveURL(/a=\d+/);
+  await expect(page.getByRole("table", { name: /compared with Player 2/ })).toBeVisible();
+  await noOverflow(page);
+  await axeClean(page);
+});
+
+test("without fpl.json the FPL page says so and offers a retry", async ({ page }) => {
+  test.info().annotations.push({ type: "expects-console-errors" });
+  await page.route(/\/data\/fpl\.json/, (route) => route.fulfill({ status: 503, body: "" }));
+  await page.goto("./#/fpl");
+  await expect(page.getByRole("alert")).toContainText("Couldn’t load this section.");
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Fantasy Premier League", level: 1 })).toBeVisible();
+});
+
 test("every route survives a reload, content and title", async ({ page }) => {
   const routes = [
     [
@@ -372,6 +465,11 @@ test("every route survives a reload, content and title", async ({ page }) => {
       () => expect(page.getByRole("heading", { name: "Key events" })).toBeVisible(),
     ],
     ["#/search?q=arsenal", /^Search: arsenal · /, () => expect(page.getByRole("searchbox")).toHaveValue("arsenal")],
+    [
+      "#/fpl?view=assistant&out=1&bank=5",
+      /^Transfer assistant · /,
+      () => expect(page.getByRole("table", { name: /Possible replacements for/ })).toBeVisible(),
+    ],
     [
       "#/nowhere",
       /^Page not found · /,

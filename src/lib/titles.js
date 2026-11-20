@@ -23,6 +23,12 @@ export function titleFor(route, ctx = {}) {
         : `Compare players · ${SITE_NAME}`;
     case "stats":
       return `Statistics · ${SITE_NAME}`;
+    case "fpl":
+      return route.view === "assistant"
+        ? `Transfer assistant · Fantasy Premier League · ${SITE_NAME}`
+        : route.view === "compare"
+          ? `Compare FPL players · ${SITE_NAME}`
+          : `Fantasy Premier League · ${SITE_NAME}`;
     case "search":
       return route.query ? `Search: ${route.query} · ${SITE_NAME}` : `Search · ${SITE_NAME}`;
     default:

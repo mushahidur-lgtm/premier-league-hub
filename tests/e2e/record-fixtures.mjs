@@ -37,6 +37,7 @@ const news = await get(`${SITE}/news.json`);
 const meta = await get(`${SITE}/meta.json`);
 const league = await get(`${SITE}/league.json`);
 const stats = await get(`${SITE}/stats.json`);
+const fpl = await get(`${SITE}/fpl.json`);
 // Two squad players with league appearances: one with a recorded profile and match log, both for comparing.
 const regulars = roster.athletes.filter((a) =>
   a.statistics?.splits?.categories?.some((c) => c.stats?.some((s) => s.name === "appearances" && s.value > 0)),
@@ -126,6 +127,7 @@ await Promise.all([
   save("athlete.json", athlete),
   save("gamelog.json", gamelog),
   save("stats.json", stats),
+  save("fpl.json", fpl),
   save("athlete-season.json", athleteSeason),
   save("recorded.json", {
     recordedAt,

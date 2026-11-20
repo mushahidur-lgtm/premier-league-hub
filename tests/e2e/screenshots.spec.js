@@ -85,6 +85,18 @@ test("desktop pages", async ({ page }, info) => {
   await page.getByRole("heading", { name: "Key events" }).waitFor();
   await settleFull(page);
   await page.screenshot({ path: `${OUT}/match.png`, fullPage: true });
+
+  // Transfer assistant: the top midfielder by form out, £1.5m in the bank.
+  await page.goto("./#/fpl?pos=MID");
+  const top = page
+    .getByRole("table", { name: /FPL players sorted by/ })
+    .locator("tbody tr")
+    .first();
+  await top.getByRole("link", { name: /^Replace/ }).click();
+  await page.getByLabel("Money in the bank (£m)").fill("1.5");
+  await page.getByRole("table", { name: /Possible replacements for/ }).waitFor();
+  await settleFull(page);
+  await page.screenshot({ path: `${OUT}/fpl-assistant.png`, fullPage: true });
 });
 
 test("mobile home", async ({ page }, info) => {

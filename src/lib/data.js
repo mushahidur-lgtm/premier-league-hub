@@ -24,6 +24,7 @@ import { parseNewsFile } from "./news.js";
 import { parseLeague } from "./league.js";
 import { parseAthlete, parseGamelog } from "./player.js";
 import { parseAthleteSeason, parseStats } from "./stats.js";
+import { parseFpl } from "./fpl.js";
 import { persistentStats } from "./diagnostics.js";
 import { isObj } from "./validate.js";
 import { OUTLETS } from "./sources.js";
@@ -74,6 +75,10 @@ export const SOURCES = {
     name: "ESPN and Fantasy Premier League",
     detail: "season statistics, collected by this site's data pipeline",
   },
+  fpl: {
+    name: "Fantasy Premier League",
+    detail: "prices, points and fixture difficulty, collected by this site's data pipeline",
+  },
   league: {
     name: "Fantasy Premier League and ESPN",
     detail: "gameweeks, form and leaders, collected by this site's data pipeline",
@@ -91,7 +96,7 @@ export const SOURCES = {
  * news: the pipeline runs every 4 hours, so a news.json older than ~2 missed runs means it has stopped.
  * @type {Record<string, number>}
  */
-export const STALE_AFTER_MS = { news: 10 * 3600e3, league: 10 * 3600e3, stats: 10 * 3600e3 };
+export const STALE_AFTER_MS = { news: 10 * 3600e3, league: 10 * 3600e3, stats: 10 * 3600e3, fpl: 10 * 3600e3 };
 
 /**
  * When the data itself was produced: the pipeline's `generatedAt` for news, otherwise the fetch time.
@@ -103,7 +108,7 @@ export const STALE_AFTER_MS = { news: 10 * 3600e3, league: 10 * 3600e3, stats: 1
 export function asOfOf(key, data, savedAt) {
   const kind = kindOf(key);
   if (
-    (kind === "news" || kind === "league" || kind === "stats") &&
+    (kind === "news" || kind === "league" || kind === "stats" || kind === "fpl") &&
     data?.generatedAt instanceof Date &&
     !Number.isNaN(data.generatedAt.getTime())
   ) {
@@ -172,6 +177,11 @@ export const LOADERS = {
     if (data.missing.length) warnings.push(`Unavailable: ${data.missing.join(", ")}`);
     return { data, warnings };
   },
+  /** Fantasy Premier League players and fixtures from the data pipeline. @returns {Promise<LoadResult>} */
+  fpl: async () => {
+    const data = parseFpl(await fetchJSON(dataUrl("fpl.json")));
+    return { data, warnings: data.carriedOver ? ["Not refreshed at the last update"] : [] };
+  },
   /** Gameweeks, fixtures, form and leaders from the data pipeline. @returns {Promise<LoadResult>} */
   league: async () => {
     const data = parseLeague(await fetchJSON(dataUrl("league.json")));
@@ -222,6 +232,7 @@ export function loaderFor(key) {
     case "news":
     case "league":
     case "stats":
+    case "fpl":
       return id ? null : LOADERS[kind];
     case "athleteSeason":
       return id && extra && DIGITS.test(id) && DIGITS.test(extra) ? () => LOADERS.athleteSeason(id, extra) : null;
@@ -283,6 +294,7 @@ export const cacheConfig = {
     roster: 7 * DAY, // squads change slowly
     athlete: 7 * DAY,
     stats: 2 * DAY,
+    fpl: 2 * DAY,
     athleteSeason: 7 * DAY,
     gamelog: 3 * DAY,
     summary: 14 * DAY, // a finished match's summary doesn't change
@@ -295,6 +307,7 @@ export const cacheConfig = {
     roster: 30 * MIN,
     athlete: 30 * MIN,
     stats: 15 * MIN,
+    fpl: 15 * MIN,
     athleteSeason: 60 * MIN,
     gamelog: 10 * MIN,
   },
@@ -356,6 +369,13 @@ const CACHE_CHECKS = {
   scoreboard: sanitizeSchedule,
   scoreboards: sanitizeSchedule,
   news: sanitizeNews,
+  fpl: (/** @type {any} */ d) => {
+    try {
+      return isObj(d) ? parseFpl(d) : null;
+    } catch {
+      return null;
+    }
+  },
   // A saved league file is re-checked like a fresh one (dates revived, malformed records dropped).
   league: (/** @type {any} */ d) => {
     try {
