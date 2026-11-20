@@ -630,6 +630,9 @@ public`, write `<file>.gz` for every .html/.js/.css/.json/.svg (`gzip -9 -c f > 
 node:22-alpine). That changes the deploy job, so it waits for the owner's go-ahead. **Done after the go-ahead:**
 `scripts/precompress.mjs` (Node zlib, gzip and Brotli, text files over 1 KB) runs in the `pages` job; unit test checks
 each copy decompresses to the original. Locally: 907 KB of text → 214 KB gzip, 178 KB Brotli.
+Deployed by pipeline 3092390359 (`test` 70 s + `pages` 45 s). Live, by Accept-Encoding: main script 258 KB → 74 KB
+Brotli / 85 KB gzip; news.json 300 KB → 58 KB / 73 KB; stats.json 161 KB → 15 KB / 20 KB; a client without
+compression still gets the plain file. In the browser news.json transferred 57 KB; page and console clean.
 
 Next recommended: **Phase 10 (Fantasy Premier League)**: FPL is already fetched by the pipeline (bootstrap-static
 has prices, ownership, form, points, xG/xA; fixtures have difficulty). Check `element-summary` (per-player
