@@ -171,3 +171,17 @@ export function injuryReports(stories, players, now = Date.now()) {
 
 /** A report that means "not fully fit" (injured or doubt), as opposed to a return. @param {InjuryReport | undefined} r */
 export const isAbsenceReport = (r) => r?.kind === "injured" || r?.kind === "doubt";
+
+/**
+ * One player's latest report, read with his whole squad as candidates, so injury wording still goes to the
+ * nearest named player ("Saka replaces injured Martinelli" is about Martinelli, not Saka). Never call
+ * injuryReports with a one-player list for this.
+ * @param {any[]} stories
+ * @param {{ id: string, name: string, lastName?: string | null }[]} squad the player's whole squad
+ * @param {string} playerId
+ * @param {number} [now]
+ * @returns {InjuryReport | null}
+ */
+export function reportFor(stories, squad, playerId, now = Date.now()) {
+  return injuryReports(stories, squad, now).get(playerId) ?? null;
+}

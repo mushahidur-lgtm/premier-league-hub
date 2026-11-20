@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { fmtDay, fmtKick, fmtTime, relDay, sameDay, timeAgo } from "../../src/lib/format.js";
+import { fmtBirthDate, fmtDay, fmtKick, fmtTime, relDay, sameDay, timeAgo } from "../../src/lib/format.js";
 import { parseDate } from "../../scripts/lib/feed-parser.mjs";
 import { heroMode } from "../../src/lib/hero.js";
 
@@ -104,5 +104,15 @@ describe("feed timestamps are absolute", () => {
         expect(timeAgo(new Date(now - 3 * 3600e3), now)).toBe("3h ago");
         expect(timeAgo(new Date(now - 5 * 60e3), now)).toBe("5m ago");
       });
+  });
+});
+
+describe("fmtBirthDate", () => {
+  it("writes a date of birth out in full and never shifts it with the timezone", () => {
+    const out = fmtBirthDate(new Date("1999-01-14T00:00:00Z"));
+    expect(out).toMatch(/14/);
+    expect(out).toMatch(/January/);
+    expect(out).toMatch(/1999/);
+    expect(fmtBirthDate(null)).toBeNull();
   });
 });

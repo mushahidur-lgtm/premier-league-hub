@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { GitCompareArrows } from "lucide-react";
 import { clubByEspnId } from "../config/clubs.js";
 import { useSource } from "../lib/data.js";
-import { fmtDay } from "../lib/format.js";
-import { injuryReports, isAbsenceReport } from "../lib/injuries.js";
+import { fmtBirthDate, fmtDay } from "../lib/format.js";
+import { isAbsenceReport, reportFor } from "../lib/injuries.js";
 import { playerClub, seasonStats } from "../lib/player.js";
 import { toHash } from "../lib/route.js";
 import { titleFor } from "../lib/titles.js";
@@ -70,7 +70,8 @@ function Facts({ a, club, player }) {
         UNAVAILABLE
       ),
     ],
-    ["Age", a.age != null ? `${a.age}${a.dob ? ` (born ${a.dob})` : ""}` : UNAVAILABLE],
+    // The roster's date of birth (a real date); ESPN's display string is day/month and easy to misread.
+    ["Age", a.age != null ? `${a.age}${player?.dob ? ` (born ${fmtBirthDate(player.dob)})` : ""}` : UNAVAILABLE],
     ["Height", a.height ?? UNAVAILABLE],
   ];
   return (
@@ -238,9 +239,10 @@ export default function PlayerPage({ playerId }) {
   const league = useSource("league");
   const news = useSource("news");
   const stories = useStories(news.data);
+  const squad = roster.data?.players ?? null;
   const report = useMemo(
-    () => (player ? (injuryReports(stories, [player]).get(player.id) ?? null) : null),
-    [stories, player],
+    () => (player && squad ? reportFor(stories, squad, player.id) : null),
+    [stories, player, squad],
   );
   useTitle(titleFor({ name: "player", playerId }, { playerName: a?.name }));
   const minutes = league.data?.minutes?.[playerId] ?? null;

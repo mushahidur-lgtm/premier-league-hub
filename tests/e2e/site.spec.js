@@ -213,6 +213,13 @@ test("search finds players and keeps the query in the address", async ({ page })
   const surname = fixtures.default.athletes.find((a) => a.lastName && a.lastName.length > 3).lastName;
   await box.fill(surname);
   await expect(page.locator("section[aria-labelledby=r-players] li").first()).toContainText(surname);
+  // A player result opens that player's profile.
+  await expect(
+    page
+      .locator("section[aria-labelledby=r-players] li")
+      .first()
+      .getByRole("link", { name: new RegExp(surname) }),
+  ).toHaveAttribute("href", /^#\/player\/\d+$/);
   await expect(page).toHaveURL(new RegExp(`#/search\\?q=${encodeURIComponent(surname)}`));
   await page.reload();
   await expect(box).toHaveValue(surname);

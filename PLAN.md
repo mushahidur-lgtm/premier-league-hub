@@ -485,9 +485,14 @@ a day so far).
 - [x] Deploy and live check: pipelines 3092100701 and 3092106942 (`test` 59–67 s + `pages` 31 s); `pages` log
       "56 of 603 squad players have no FPL match (minutes unknown)", "status: ok; output valid"; live league.json has
       547 minutes entries. Browser: Haaland's profile (bio, 10 appearances, 889 FPL minutes, 0.91 goals per 90, ten
-      matches), a goalkeeper reached from the Arsenal squad list (saves and conceded instead of attacking figures; his
-      minutes "–" because FPL has no match for him), Haaland v Isak comparison with 13 rows; no error sections, no
+      matches), a goalkeeper (David Raya) reached from the Arsenal squad list (saves and conceded instead of attacking figures;
+      900 FPL minutes, checked again after the cache fix: the first pass showed "–" for every player because of the
+      stale saved copy below), Haaland v Isak comparison with 13 rows; no error sections, no
       console errors. Local: 541 unit tests in 28 files, 39 e2e (13 tests × 3 widths), lint/typecheck/audit clean.
+- [x] Review fixes: the profile's injury note now reads headlines with the whole squad as candidates
+      (`reportFor` in `injuries.js`; with a one-player list "Saka replaces injured Martinelli" was read as Saka
+      injured; unit test added); date of birth from the roster's date, written out in UTC (`fmtBirthDate`), not
+      ESPN's ambiguous day/month string; e2e asserts that a search result links to the profile.
 - [x] Found in the live check: a browser that had saved league.json 11 minutes before the deploy kept showing
       minutes as "–" (its copy was inside the 15-minute fresh window, so no request). `CACHE_VERSION` 2 → 3; CLAUDE.md
       now says to bump it whenever a pipeline file gains a field the UI reads.

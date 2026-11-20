@@ -51,3 +51,11 @@ export function relDay(d, now = new Date()) {
 export const ordinal = (n) =>
   n == null ? "–" : n + (["th", "st", "nd", "rd"][n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] ?? "th");
 export const signed = (n) => (n == null ? "–" : n > 0 ? `+${n}` : String(n));
+
+/**
+ * A date of birth written out ("14 January 1999" or "January 14, 1999" by locale), read in UTC so it never
+ * shifts a day with the viewer's timezone.
+ * @param {Date | null | undefined} d
+ */
+export const fmtBirthDate = (d) =>
+  d ? fmtDate(d, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) : null;

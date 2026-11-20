@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { injuryReports, isAbsenceReport, readHeadline } from "../../src/lib/injuries.js";
+import { injuryReports, isAbsenceReport, readHeadline, reportFor } from "../../src/lib/injuries.js";
 import { buildStories, parseNewsFile } from "../../src/lib/news.js";
 
 const NOW = Date.parse("2026-11-19T12:00:00Z");
@@ -12,6 +12,7 @@ const MARTINEZ = P("5", "Emiliano Martínez", "Martínez");
 const ONEILL = P("6", "Ceadach O’Neill", "O’Neill");
 const SAKA = P("7", "Bukayo Saka", "Saka");
 const RICE = P("8", "Declan Rice", "Rice");
+const MARTINELLI = P("10", "Gabriel Martinelli", "Martinelli");
 
 const read = (title, players) => Object.fromEntries(readHeadline(title, players));
 
@@ -95,6 +96,15 @@ describe("injuryReports", () => {
       })),
     }).items;
   const reports = (items) => injuryReports(buildStories(file(items), { now: NOW }), [SAKA, RICE], NOW);
+
+  it("a profile's report is read against the whole squad, so wording about a team-mate isn't his", () => {
+    const stories = buildStories(
+      file([{ title: "Saka replaces injured Martinelli", date: "2026-11-18T10:00:00Z", players: ["7", "10"] }]),
+      { now: NOW },
+    );
+    expect(reportFor(stories, [SAKA, RICE, MARTINELLI], "7", NOW)).toBeNull();
+    expect(reportFor(stories, [SAKA, RICE, MARTINELLI], "10", NOW)).toMatchObject({ kind: "injured" });
+  });
 
   it("reports the latest fitness news per player, with outlet and time", () => {
     const r = reports([
