@@ -12,23 +12,28 @@ Live: **https://mushahidur.gitlab.io/premier-league-hub/** · Source: [GitLab](h
 Taken by Playwright from the production build (`npm run screenshots`) with the recorded e2e fixtures. Club crests are
 live from ESPN's CDN. The injury story in the squad shot is the made-up fixture story the e2e tests use for rule 3.
 
-| League home (desktop)                            | League home (375 px)                                            |
-| ------------------------------------------------ | --------------------------------------------------------------- |
-| ![League home](docs/screenshots/home.png)        | ![League home on a phone](docs/screenshots/home-mobile.png)     |
-| **Club page**                                    | **Squad: a "reported injured" note from the news**              |
-| ![Club page](docs/screenshots/club.png)          | ![Squad with an injury note](docs/screenshots/squad-injury.png) |
-| **Transfers and contracts (home)**               | **Match centre**                                                |
-| ![Transfer feed](docs/screenshots/transfers.png) | ![Match centre](docs/screenshots/match.png)                     |
+| League home (desktop)                               | League home (375 px)                                            |
+| --------------------------------------------------- | --------------------------------------------------------------- |
+| ![League home](docs/screenshots/home.png)           | ![League home on a phone](docs/screenshots/home-mobile.png)     |
+| **Club page**                                       | **Squad: a "reported injured" note from the news**              |
+| ![Club page](docs/screenshots/club.png)             | ![Squad with an injury note](docs/screenshots/squad-injury.png) |
+| **Transfers and contracts (home)**                  | **Match centre**                                                |
+| ![Transfer feed](docs/screenshots/transfers.png)    | ![Match centre](docs/screenshots/match.png)                     |
+| **Fixtures by gameweek, with filters**              | **Top scorers and assists**                                     |
+| ![Gameweek fixtures](docs/screenshots/gameweek.png) | ![Leaders](docs/screenshots/leaders.png)                        |
 
 ## What's on it
 
-- **League home** (`#/`): table with qualification and relegation zones, the current round of fixtures and results in
-  the viewer's timezone, top stories across the league, transfers and contracts, and a "pick your club" grid.
+- **League home** (`#/`): table with qualification and relegation zones and each club's last five results; fixtures
+  and results by gameweek (any of the 38, live / upcoming / completed filters, times in the viewer's timezone, live
+  scores from ESPN); top scorers and assists; key fixtures (upcoming top-six and bottom-four meetings by the current
+  table); top stories; transfers and contracts; and a "pick your club" grid. Each part says where its data came from
+  and how old it is.
 - **Club pages** (`#/club/<slug>`): next match with countdown, last result, table position, gaps and form, club news
   with outlet credibility, squad with availability, fixtures and results.
 - **Match centre** (`#/match/<event-id>`): score, key events, team stats, line-ups on a formation pitch.
-- **My club**: stored in `localStorage`; the home page leads with it and the UI takes its colour as an accent,
-  darkened until it passes WCAG AA.
+- **My club**: stored in `localStorage`; the home page leads with its position, gaps, form and next or live match,
+  and the UI takes its colour as an accent, darkened until it passes WCAG AA.
 - **Search** (`#/search?q=`) across clubs, players (all 20 squads) and stories.
 
 ## Commands
@@ -63,14 +68,21 @@ schedules and match pages are always refetched. Refresh and the 10-minute auto-r
 
 **From the pipeline:** `scripts/fetch-data.mjs` (Node 22, no dependencies) fetches each club's BBC Sport, Guardian and
 Sky Sports feeds plus three league-wide feeds (57 in all) and the 20 ESPN squads. It parses RSS and Atom,
-de-duplicates, tags each story with clubs and players, and writes two same-origin files:
+de-duplicates, tags each story with clubs and players, and writes three same-origin files:
 
 - `data/news.json`: `{ generatedAt, outlets, items[] }`, each item with `id`, `title`, `link`, `date`, `image`,
   `excerpt`, `author`, `outlet`, `clubs` (slugs), `players` (ESPN ids) and `also` (near-identical copies from other
   feeds). Last 14 days, at most 800 items.
 - `data/meta.json`: `generatedAt`, `durationMs`, `counts` (`feeds`, `feedsOk`, `rawItems`, `items`, `rostersOk`,
   `players`, `itemsWithPlayers`), and per-source status lists `feeds[]` (`club`, `outlet`, `url`, `ok`, `status`,
-  `items`, `error`, `ms`) and `rosters[]` (`club`, `ok`, `players`, `error`).
+  `items`, `error`, `ms`) and `rosters[]` (`club`, `ok`, `players`, `error`), plus a `league` summary.
+- `data/league.json`: gameweeks 1–38 and all 380 fixtures from the official **Fantasy Premier League** data (the only
+  source of gameweek numbers; it has no CORS, so only the pipeline can read it), each club's last five league results
+  derived from FPL's finished fixtures, and the goals and assists leaders from ESPN (top ten plus ties). Each part has
+  its own date in `asOf`. If a source fails, that part is carried over from the live file with its older date
+  (`carriedOver`) or listed in `missing`; it is never guessed, and it never stops the news deploy. The browser asks
+  ESPN's scoreboard for the selected gameweek's days and shows ESPN's live score and match centre for each fixture
+  ESPN lists; the rest are shown from FPL, unlinked.
 
 `meta.json` also carries `status` (`ok` or `degraded`) and `problems`. A failed feed or squad is recorded there
 (error codes only; IP addresses are removed) and the run still deploys. Below a floor (fewer than half the feeds, or
@@ -136,6 +148,9 @@ the real use is lower: 183 budgeted scheduled minutes plus, say, 30 pushes × 2 
   list is described as "ESPN lists no injuries or suspensions. Its list can lag club news."
 - **Transfers** are a simplified feed: "Confirmed" only for completion wording from a reliable outlet with no hedge,
   otherwise "Reported". Manager news, finances, fan pieces, live blogs and newsletters are left out.
+- **Gameweeks are FPL's, labelled as such.** ESPN has no gameweek numbers, so the selector uses Fantasy Premier
+  League's rounds. A postponed match sits in the round FPL moves it to, or under "Awaiting a new date"; no number is
+  ever inferred. "Key fixtures" is a stated rule (top-six or bottom-four meetings by the current table), not an opinion.
 - **Accent colours** are computed (`src/lib/accent.js`): a club's primary colour is darkened until it reaches 4.5:1
   on the page and on its own tint; raw club colours are decoration only. Tested for all 20 clubs.
 - **Crests** come from ESPN's CDN resized by its image combiner (`src/lib/crest.js`): about 4 KB per crest instead of

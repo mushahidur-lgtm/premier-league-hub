@@ -120,10 +120,8 @@ export default function Home({ myClub }) {
         )}
       </div>
 
-      <div className="grid gap-10 lg:grid-cols-2">
-        <KeyFixturesSection league={league} standings={standings} />
-        <LeadersSection league={league} />
-      </div>
+      <LeadersSection league={league} />
+      <KeyFixturesSection league={league} standings={standings} />
 
       <Section id="news-heading" title="Top stories" state={news} empty="No stories in the last week.">
         {() =>

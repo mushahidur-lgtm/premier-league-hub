@@ -18,7 +18,10 @@ test.beforeEach(async ({ page }) => {
 const settle = async (page) => {
   await page.waitForLoadState("networkidle");
   await page.evaluate(() => document.fonts.ready);
-  await page.waitForFunction(() => [...document.images].every((i) => i.complete));
+  // Lazy images below the fold never load, so wait only for those in view.
+  await page.waitForFunction(() =>
+    [...document.images].filter((i) => i.getBoundingClientRect().top < innerHeight).every((i) => i.complete),
+  );
   const broken = await page.evaluate(() =>
     [...document.images]
       .filter((i) => i.getBoundingClientRect().top < innerHeight && !i.naturalWidth)
@@ -34,6 +37,8 @@ test("desktop pages", async ({ page }, info) => {
   await settle(page);
   await page.screenshot({ path: `${OUT}/home.png` });
   await page.locator("section[aria-labelledby=transfers-heading]").screenshot({ path: `${OUT}/transfers.png` });
+  await page.locator("section[aria-labelledby=fixtures-heading]").screenshot({ path: `${OUT}/gameweek.png` });
+  await page.locator("section[aria-labelledby=leaders-heading]").screenshot({ path: `${OUT}/leaders.png` });
 
   await page.goto(`./#/club/${RECORDED.club}`);
   const note = page.getByRole("link", { name: /Reported injured/ });

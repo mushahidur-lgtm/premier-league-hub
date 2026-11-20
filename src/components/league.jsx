@@ -225,7 +225,7 @@ function LeaderTable({ title, unit, list }) {
                     </span>
                   </td>
                   <td className="num px-1 py-1.5 text-right text-lg font-bold">{p.value}</td>
-                  <td className="num py-1.5 pl-1 text-right text-muted">{p.matches ?? "–"}</td>
+                  <td className="num py-1.5 pr-1 pl-1 text-right text-muted">{p.matches ?? "–"}</td>
                 </tr>
               );
             })}

@@ -292,9 +292,9 @@ Phase 5 decisions:
 
 #### Open issues for later versions
 
-1. **Home table form column.** Needs 20 club schedules in the browser (40 requests). Better: have the pipeline write
+1. ~~**Home table form column.**~~ Done in Phase 7 (from FPL fixtures via the pipeline). Was: needs 20 club schedules in the browser (40 requests). Better: have the pipeline write
    `data/form.json` from the schedules it could fetch alongside the rosters.
-2. **Gameweek labels.** The default scoreboard has no `week`; fixtures are grouped by date.
+2. ~~**Gameweek labels.**~~ Done in Phase 7 (FPL gameweeks). Was: the default scoreboard has no `week`; fixtures are grouped by date.
 3. **Dark theme** (light only in v1).
 4. **Per-route link previews** (club and match OG cards) need prerendered HTML per route, which hash routing can't
    give; would mean moving to path routing with a Pages 404 fallback.
@@ -418,6 +418,48 @@ Phase 6 outcome: done. Next recommended: **Phase 7 (league dashboard)**, startin
 `data/gameweeks.json` and league form from FPL `fixtures/` (see the assessment), then the gameweek selector, top
 scorers and assists from ESPN `statistics`, and the table's form column. Carried forward: `noImplicitAny` (196 errors),
 the deferred majors (Vite 8, React 19, ESLint 10, lucide 1.x), and v1 open issues 1–2 and 4–7.
+
+### Phase 7: league dashboard
+
+- [x] Pipeline `data/league.json` (named for what it holds, not `gameweeks.json` as the assessment guessed): FPL
+      gameweeks and fixtures, league form, ESPN goals and assists leaders; per-part `asOf`, carry-over, validation
+- [x] Functional gameweek selector (all 38, previous/next, opens on the current gameweek until it is finished, then
+      the next) that loads the selected gameweek's fixtures, with ESPN live scores for its days
+- [x] Matchday scoreboard with live / upcoming / completed filters and counts
+- [x] League table with form indicators (all widths, including 375 px)
+- [x] Top scorers and assists
+- [x] Upcoming important fixtures ("Key fixtures", by a stated rule)
+- [x] Improved My Club block (position, points, gaps, form, then next/live and last match)
+- [x] Data freshness: every dashboard part names its source and age; live scores are labelled live
+- [ ] Deploy and live check (below)
+
+Phase 7 decisions:
+
+- **Gameweeks come from FPL** (`scripts/lib/league.mjs`). FPL teams are matched to clubs by FPL short name = our
+  `abbr`, and all 20 must match or no gameweek data is published. A fixture is shown in the round FPL gives it; FPL
+  moves a postponed match to its replay round, and one with no round yet is listed under "Awaiting a new date".
+  Labels say "Fantasy Premier League"; no number is inferred.
+- **Scores:** for the selected gameweek the browser fetches ESPN's scoreboard for each of its days (UTC dates of
+  FPL's kick-offs; one request per day, new `scoreboards:<days>` source) and pairs matches by home and away club.
+  A paired fixture shows ESPN's live score, clock and match-centre link; an unpaired one shows FPL's score or
+  kick-off, without a link, and the section says how many. If ESPN fails, the section says so and shows FPL's data.
+  Filters use the provider's state: a kick-off that has passed without a result is "upcoming", never "completed".
+- **Fallback:** if league.json has no gameweeks (or can't load at all), the home page shows ESPN's default
+  scoreboard as before.
+- **Form** is derived from FPL's finished fixtures (provisional or confirmed full time), last five, oldest first. The
+  club page keeps its ESPN-schedule form (it includes links to the match centre); the two can differ for up to a
+  pipeline interval after a match, and each says where it comes from.
+- **Leaders** are ESPN's (goals and assists, top ten plus everyone tied at the cut, capped at 20). "Apps" shows "–"
+  when ESPN gives no match count; never 0.
+- **Key fixtures:** upcoming in the next 14 days, both clubs in the top six or both in the bottom four of the current
+  ESPN table (needs all 20 rows). The rule is printed above the list.
+- **Freshness:** the dashboard sections drop the generic "Source" line (`Section sourceLine={false}`) for one line
+  per source (`FreshnessLine`): FPL fixture list with its `asOf`, ESPN scores marked live, ESPN leaders, FPL form
+  under the table.
+- **Bug found by the e2e test:** FPL-only rows have no ESPN id, so they shared a React key; when ESPN's scores arrived
+  React kept stale rows (10 matches rendered as 19). Rows are keyed by ESPN id, else FPL id; day groups by day.
+- **Pipeline cost:** two FPL requests (1.8 MB + 0.1 MB) and one ESPN statistics request (0.7 MB) per run; league.json
+  is ~80 KB (about 10 KB gzipped). Main chunk 79 KB gzipped (was 74 KB).
 
 ## Decisions
 
