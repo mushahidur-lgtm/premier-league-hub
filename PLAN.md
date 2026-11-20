@@ -431,7 +431,12 @@ the deferred majors (Vite 8, React 19, ESLint 10, lucide 1.x), and v1 open issue
 - [x] Upcoming important fixtures ("Key fixtures", by a stated rule)
 - [x] Improved My Club block (position, points, gaps, form, then next/live and last match)
 - [x] Data freshness: every dashboard part names its source and age; live scores are labelled live
-- [ ] Deploy and live check (below)
+- [x] Deploy and live check: pipelines 3092042523 and 3092057358 (`test` 66 s + `pages` 46 s, inside the 2-minute
+      budget); the `pages` log shows "league.json: missing [], carried over []" and "status: ok; output valid" (GitLab's
+      runners reach FPL); live `league.json` 79 KB, 38 gameweeks, 380 fixtures. Browser, desktop and 375 px: Gameweek
+      11 opens with 10 ESPN-linked matches, picking Gameweek 3 loads its 10 results (ESPN matched past days too), form
+      for 20 clubs, leaders, key fixtures, no overflow, no error sections, no console errors. Local: 522 unit tests in
+      27 files, 33 e2e (11 tests × 3 widths), lint/typecheck/audit clean, main chunk 79 KB gzip.
 - [x] Review fixes: "live" scores label only while matches remain (postponed-safe); a failed league section still
       names its source; e2e for the ESPN-scoreboard fallback when league.json fails; carry-over checked for real
       against the live file (FPL stubbed to fail: gameweeks and form kept their 01:22Z date, leaders fresh, errors
@@ -464,6 +469,12 @@ Phase 7 decisions:
   React kept stale rows (10 matches rendered as 19). Rows are keyed by ESPN id, else FPL id; day groups by day.
 - **Pipeline cost:** two FPL requests (1.8 MB + 0.1 MB) and one ESPN statistics request (0.7 MB) per run; league.json
   is ~80 KB (about 10 KB gzipped). Main chunk 79 KB gzipped (was 74 KB).
+
+Phase 7 outcome: done. Next recommended: **Phase 8 (player profiles)**: `#/player/<id>` from ESPN's athlete bio and
+gamelog endpoints (both CORS OK; `/stats` is 404, so season totals must come from the gamelog or be shown as
+unavailable), plus FPL player data via the pipeline if minutes/cards are needed. Link leaders and squad rows to it.
+Outstanding: `noImplicitAny` (196); deferred majors; v1 open issues 3–10; FPL rate limits not measured (12 requests
+a day so far).
 
 ## Decisions
 
