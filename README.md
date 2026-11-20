@@ -94,11 +94,12 @@ no addresses or credential-like text) before they are written. Both are generate
 
 GitLab Free gives 400 compute minutes a month. The target is under 300, leaving headroom. Playwright never runs in CI.
 
-Measured on 2026-11-19 (push: Phase 6, with typecheck and the dependency audit; scheduled: Phase 5):
+Measured on 2026-11-19 and 20 (push: Phase 7, with typecheck, the dependency audit and the league data; scheduled:
+Phase 5, before the league data, which adds about 3 s of fetching):
 
 | Pipeline                       | Jobs           | Measured                          | Budgeted as |
 | ------------------------------ | -------------- | --------------------------------- | ----------- |
-| Push to `main`                 | `test`+`pages` | 53 s + 45 s (pipeline 3091928771) | 2 min       |
+| Push to `main`                 | `test`+`pages` | 66 s + 31 s (pipeline 3092042523) | 2 min       |
 | Scheduled refresh (pages only) | `pages`        | 31 s (pipeline 3091321718)        | 1 min       |
 
 The budget rounds up generously for cache misses, slow runners and feeds that hit the 15 s timeout.

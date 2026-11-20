@@ -105,7 +105,7 @@ export function Section({
       {hasData && state.empty && <p className="rounded-md bg-field px-3 py-6 text-muted">{empty}</p>}
       {hasData && !state.empty && children(state.data)}
       {state.warnings?.length > 0 && <p className="mt-2 text-sm text-muted">{state.warnings.join(". ")}.</p>}
-      {sourceLine && (hasData || state.status === "error") && <SourceLine state={state} />}
+      {((sourceLine && hasData) || state.status === "error") && <SourceLine state={state} />}
       {note}
     </section>
   );

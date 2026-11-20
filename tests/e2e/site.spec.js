@@ -91,6 +91,29 @@ test("home dashboard: gameweek selector, filters, form, leaders and key fixtures
   await axeClean(page);
 });
 
+test("without league.json the fixtures fall back to ESPN's scoreboard, and the league sections say what failed", async ({
+  page,
+}) => {
+  test.info().annotations.push({ type: "expects-console-errors" }); // the deliberate HTTP 500
+  await page.route(/\/data\/league\.json/, (route) =>
+    route.fulfill({ status: 500, contentType: "application/json", body: '{"error":"test"}' }),
+  );
+  await page.goto("./");
+  const fixtures = page.locator("section[aria-labelledby=fixtures-heading]");
+  await expect(fixtures.locator("li").first()).toBeVisible();
+  await expect(fixtures.getByText(/Source: ESPN, Premier League scoreboard/)).toBeVisible();
+  await expect(fixtures.getByRole("combobox", { name: "Gameweek" })).toHaveCount(0);
+  for (const id of ["leaders-heading", "key-fixtures-heading"]) {
+    const sec = page.locator(`section[aria-labelledby=${id}]`);
+    await expect(sec.getByRole("alert")).toContainText("Couldn’t load this section");
+    await expect(sec.getByRole("button", { name: "Try again" })).toBeVisible();
+    await expect(sec.getByText(/Source: Fantasy Premier League and ESPN/)).toBeVisible();
+  }
+  // The table still renders, just without the form column.
+  await expect(page.locator("section[aria-labelledby=table-heading] tbody tr")).toHaveCount(20);
+  await expect(page.getByRole("columnheader", { name: "Form" })).toHaveCount(0);
+});
+
 test("club page: matches, position, form, news and squad", async ({ page }) => {
   await page.goto(`./#/club/${RECORDED.club}`);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

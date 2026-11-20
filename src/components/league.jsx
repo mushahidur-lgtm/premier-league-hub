@@ -134,7 +134,7 @@ function GameweekMatches({ league, gameweek }) {
               ? `Live scores: ESPN unavailable (${scores.error}); results shown from Fantasy Premier League`
               : "Scores: ESPN"
           }
-          live={scores.status !== "error" && days.length > 0 && counts.completed < counts.all}
+          live={scores.status !== "error" && days.length > 0 && counts.live + counts.upcoming > 0}
           at={scores.status === "error" ? null : scores.asOf}
         />
         {fromFpl > 0 && scores.status !== "error" && (

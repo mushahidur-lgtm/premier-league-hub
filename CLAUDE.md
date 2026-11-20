@@ -34,7 +34,7 @@ npm test                      # vitest run (tests/unit)
 npm run typecheck             # tsc over every `// @ts-check` file (strictNullChecks on)
 npm run lint                  # eslint .
 npm run format                # prettier --write .  (format:check verifies)
-node scripts/fetch-data.mjs   # Phase 1: writes public/data/news.json + meta.json
+node scripts/fetch-data.mjs   # writes public/data/news.json, meta.json, league.json
 ```
 
 Before every commit: `npm run lint && npm run typecheck && npm test && npm run build`.
@@ -67,10 +67,20 @@ Before every commit: `npm run lint && npm run typecheck && npm test && npm run b
 
 ## Data
 
-- Browser, live: ESPN `site.api.espn.com` schedule, standings, roster, match summary (CORS OK). Keep Arsenal Hub's
-  shared in-flight requests, short memo and last-good-copy cache.
+- Browser, live: ESPN `site.api.espn.com` schedule, standings, roster, match summary, scoreboard (one day per
+  request, `?dates=YYYYMMDD`) (CORS OK). Keep Arsenal Hub's shared in-flight requests, short memo and last-good-copy
+  cache (versioned `plh-cache-vN`; bump `CACHE_VERSION` in `src/lib/data.js` when a parser's output shape changes).
 - Pipeline: `scripts/fetch-data.mjs`, Node 22, **no npm dependencies**. Fetches feeds, de-duplicates, tags clubs and
-  players, writes `public/data/news.json` + `public/data/meta.json` (generated time, per-feed status).
+  players, writes `public/data/news.json` + `public/data/meta.json` (generated time, per-feed status) +
+  `public/data/league.json` (FPL gameweeks and fixtures, league form, ESPN goals/assists leaders). Everything is
+  validated (`scripts/lib/validate-data.mjs`) before it is written.
+- Fantasy Premier League (`fantasy.premierleague.com/api`) sends **no CORS headers**: pipeline only, never from the
+  browser. It is the only source of gameweek numbers; label them as FPL's and never infer one.
+- A league.json part whose source fails is carried over from the live file (`SITE_URL`) with its own `asOf`, or
+  listed in `missing`; never guessed, and never a reason to stop the news deploy. News below the health floor (half
+  the feeds, 100 stories) stops the run so the live site keeps its data.
+- Checked ESPN endpoints for later phases: athlete bio `site.web.api.espn.com/apis/common/v3/sports/soccer/eng.1/athletes/<id>`
+  and `…/gamelog` (CORS OK); `…/stats` returns 404; `site.web.api…/eng.1/statistics` has goals/assists leaders only.
 - `public/data/*.json` is generated in CI and git-ignored.
 
 ## CI (GitLab)

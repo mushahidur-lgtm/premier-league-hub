@@ -432,6 +432,10 @@ the deferred majors (Vite 8, React 19, ESLint 10, lucide 1.x), and v1 open issue
 - [x] Improved My Club block (position, points, gaps, form, then next/live and last match)
 - [x] Data freshness: every dashboard part names its source and age; live scores are labelled live
 - [ ] Deploy and live check (below)
+- [x] Review fixes: "live" scores label only while matches remain (postponed-safe); a failed league section still
+      names its source; e2e for the ESPN-scoreboard fallback when league.json fails; carry-over checked for real
+      against the live file (FPL stubbed to fail: gameweeks and form kept their 01:22Z date, leaders fresh, errors
+      without addresses); CLAUDE.md data notes updated
 
 Phase 7 decisions:
 
