@@ -40,13 +40,14 @@ live from ESPN's CDN. The injury story in the squad shot is the made-up fixture 
 | `npm run preview`             | Serve the build at `/premier-league-hub/`                                |
 | `npm test`                    | Vitest unit tests                                                        |
 | `npm run lint`                | ESLint (including React hooks rules)                                     |
+| `npm run typecheck`           | TypeScript check of every `// @ts-check` file (no emit)                  |
 | `npm run format:check`        | Prettier check (`npm run format` to fix)                                 |
 | `npm run e2e`                 | Playwright (Chromium; 1280, 768 and 375 px; axe), local only             |
 | `npm run e2e:record`          | Re-record the e2e fixtures from the live APIs                            |
 | `npm run screenshots`         | Retake `docs/screenshots/*.png` and the Open Graph image `public/og.png` |
 | `node scripts/fetch-data.mjs` | Fetch news feeds and squads into `public/data/`                          |
 
-Before every commit: `npm run lint && npm test && npm run build`.
+Before every commit: `npm run lint && npm run typecheck && npm test && npm run build`.
 
 ## Data
 

@@ -31,12 +31,13 @@ JavaScript with JSDoc types; every file in `src/lib` and `src/config` starts wit
 ```
 npm run dev | build | preview
 npm test                      # vitest run (tests/unit)
+npm run typecheck             # tsc over every `// @ts-check` file (strictNullChecks on)
 npm run lint                  # eslint .
 npm run format                # prettier --write .  (format:check verifies)
 node scripts/fetch-data.mjs   # Phase 1: writes public/data/news.json + meta.json
 ```
 
-Before every commit: `npm run lint && npm test && npm run build`.
+Before every commit: `npm run lint && npm run typecheck && npm test && npm run build`.
 
 ## Conventions
 

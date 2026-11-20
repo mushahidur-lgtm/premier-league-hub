@@ -65,8 +65,8 @@ function namePositions(t, players) {
   /** @type {Map<string, number[]>} */
   const found = new Map();
   for (const p of players) {
-    const keys = [p.name, p.lastName].filter(Boolean).map((n) => fold(n).replace(/[‘’]/g, "'"));
-    for (const k of /** @type {string[]} */ (keys)) {
+    const keys = [p.name, p.lastName].flatMap((n) => (n ? [fold(n).replace(/[‘’]/g, "'")] : []));
+    for (const k of keys) {
       const re = new RegExp(`(?<![a-z0-9'-])${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9-])`, "g");
       const at = [...t.matchAll(re)].map((m) => tokenAt(tokens, m.index ?? 0));
       if (at.length) {
@@ -159,7 +159,7 @@ export function injuryReports(stories, players, now = Date.now()) {
       if (!a.players?.size || !a.date || (TIERS[a.tier]?.rank ?? 0) < minRank) continue;
       const age = now - a.date.getTime();
       if (age < -DAY || age > REPORT_WINDOW_DAYS * DAY) continue;
-      const tagged = [...a.players].map((id) => byId.get(id)).filter(Boolean);
+      const tagged = [...a.players].map((id) => byId.get(id)).filter((p) => p !== undefined);
       for (const [id, kind] of readHeadline(a.title, tagged)) {
         const prev = out.get(id);
         if (prev && prev.date >= a.date) continue;

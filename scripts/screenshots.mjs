@@ -1,3 +1,4 @@
+// @ts-check
 // Takes the README screenshots (docs/screenshots/) and the Open Graph image (public/og.png) with
 // Playwright against the production build. Local only, like the e2e tests.
 import { spawnSync } from "node:child_process";

@@ -382,7 +382,9 @@ tested and documented.
 
 - [x] Assessment above
 - [x] 6.4a Vitest 5 upgrade (fixes all audit findings; Vite stays 6.4): 431/431 tests in 24 files, `npm audit` 0
-- [ ] 6.1 `npm run typecheck` (TypeScript over the `// @ts-check` files), errors fixed, in CI
+- [x] 6.1 `npm run typecheck` (TypeScript over the `// @ts-check` files), errors fixed, in CI: TypeScript 5.9 over 32
+      files with `strictNullChecks` (13 errors fixed, no `@ts-expect-error`); `noImplicitAny` would add 196 (next
+      increment); `ts-check-scope.test.js` keeps every `src/lib`, `src/config` and `scripts` file in scope; CI `test` job
 - [ ] 6.2 Cache: versioning, per-kind max age and freshness, pruning, cheaper mount reads, empty-overwrite guard
 - [ ] 6.3 Pipeline: validate output before writing, degraded-run floor, clearer and address-free failure reporting;
       form/gameweek generation investigated (above)

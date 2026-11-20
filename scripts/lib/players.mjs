@@ -114,7 +114,7 @@ export function makePlayerTagger(players, clubs) {
     const full = foldCase(p.name);
     const multi = /\s/.test(full);
     // One-word names ("Rodri") behave like surnames: they need club context.
-    const surname = multi ? (p.lastName ? foldCase(p.lastName) : full.split(/\s+/).pop()) : full;
+    const surname = multi ? (p.lastName ? foldCase(p.lastName) : (full.split(/\s+/).pop() ?? full)) : full;
     if (multi) fullCount.set(full, (fullCount.get(full) ?? 0) + 1);
     return { ...p, full: multi ? full : null, surname };
   });

@@ -1,0 +1,22 @@
+{
+  // Type checking only (`npm run typecheck`): the project stays JavaScript. Scope = every file that starts with
+  // `// @ts-check` (all of src/lib and src/config, plus the pipeline scripts); other files are not checked.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client", "node"],
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    // Increments: strictNullChecks is on (Phase 6); noImplicitAny next (196 errors when tried, mostly untyped
+    // parameters in ported modules), then "strict".
+    "strict": false,
+    "strictNullChecks": true
+  },
+  "include": ["src/lib/**/*.js", "src/config/**/*.js", "scripts/**/*.mjs"]
+}

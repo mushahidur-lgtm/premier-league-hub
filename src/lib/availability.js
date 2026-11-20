@@ -46,7 +46,7 @@ export function availabilityOf(athlete) {
 
   const list = a.injuries;
   if (Array.isArray(list) && list.length) {
-    const entries = list.map(readEntry).filter(Boolean);
+    const entries = list.map(readEntry).filter((e) => e !== null);
     if (!entries.length) {
       // Something was reported but we can't tell what: never read that as "no injury".
       return {

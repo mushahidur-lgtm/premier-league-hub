@@ -20,6 +20,7 @@ test:
     - npm ci --no-audit --no-fund
     - npm run lint
     - npm run format:check
+    - npm run typecheck
     - npm test
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
