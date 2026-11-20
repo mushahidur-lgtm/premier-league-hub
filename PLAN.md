@@ -660,7 +660,20 @@ fixtures and history) and rate limits before building the transfer assistant. Ou
       key-by-key typing test that focus stays put, the rule-3 note, plus an FPL route in the reload test);
       lint/typecheck/format clean; main chunk 87 KB gzip (was 85: `parseFpl` sits with the data layer), FPL chunk
       7 KB gzip
-- [ ] Deploy and live check
+- [x] Deploy and live check: pipeline 3092575834, `test` 71 s + `pages` 45 s (same as Phase 9: no new requests);
+      `pages` log "fpl.json: 566 players"; meta.json `fpl` entry with no problems. Live fpl.json 178 KB → 23 KB
+      Brotli / 30 KB gzip; 566 players, 546 with an ESPN name; next gameweek 11 (FPL). Live `#/fpl` and the
+      assistant (out, bank, regular starters) load with no console errors.
+
+Phase 10 outcome: done. Not built: a full 15-player squad builder (the site can't read anyone's FPL team, and a
+hand-entered squad is Phase 12 territory, personalisation in `localStorage`); per-gameweek points history
+(`element-summary`, one request per player). Outstanding: 20 of 566 FPL players have no ESPN match (no profile
+link or injury cross-check for them); the FPL page's injury notes depend on news.json loading (without it the page
+shows FPL's flags only); `noImplicitAny`, deferred majors and v1 open issues 3–10 as before.
+
+Next recommended: **Phase 11 (match centre improvements)**: timeline, substitutions, cards, possession and shots
+are in ESPN's summary already parsed for the match page; check what the summary gives for formation changes and
+head-to-head before building.
 
 FPL investigation (2026-11-20, from the pipeline's user agent):
 
