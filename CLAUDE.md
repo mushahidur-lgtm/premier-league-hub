@@ -41,7 +41,8 @@ Before every commit: `npm run lint && npm run typecheck && npm test && npm run b
 
 ## Conventions
 
-- Hash routing (`#/`, `#/club/<slug>`, `#/match/<event-id>`, `#/search?q=`), parsed in `src/lib/route.js`.
+- Hash routing (`#/`, `#/club/<slug>`, `#/match/<event-id>`, `#/player/<espn-id>`, `#/compare?a=&b=`, `#/search?q=`),
+  parsed in `src/lib/route.js`.
 - Vite `base` comes from `BASE` in `src/config/site.js` (change it if the project is renamed).
 - Everything club-specific lives in `src/config/clubs.js` (ESPN id, slug, short name, colours, feeds). Nothing else in
   `src/` may mention a specific club.

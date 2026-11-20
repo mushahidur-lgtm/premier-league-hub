@@ -476,6 +476,39 @@ unavailable), plus FPL player data via the pipeline if minutes/cards are needed.
 Outstanding: `noImplicitAny` (196); deferred majors; v1 open issues 3–10; FPL rate limits not measured (12 requests
 a day so far).
 
+### Phase 8: player profiles
+
+- [x] `#/player/<espn-id>`: name and photo (labelled placeholder when ESPN has none), club, position, shirt number,
+      nationality, age; appearances, goals, assists, minutes, cards and more; recent performances; availability
+- [x] Comparison tool `#/compare?a=&b=`: two players, same season and competition, unavailable distinct from zero
+- [x] Linked from squad lists, leaders and player search; e2e and unit tests
+- [ ] Deploy and live check (below)
+
+Phase 8 decisions:
+
+- **Sources.** Bio from ESPN's athlete endpoint (`site.web.api…/common/v3/sports/soccer/eng.1/athletes/<id>`, CORS OK),
+  needed to find the player's club from a link. Season totals from the club's ESPN roster, which `parseRoster` already
+  reads (appearances, sub appearances, goals, assists, shots, on target, fouls, offsides, cards, own goals; saves and
+  conceded for goalkeepers), so every player, and both sides of a comparison, come from one source and season. The
+  match log from ESPN's game log (league matches this season, per-match goals, assists, shots, cards; no minutes).
+  ESPN's `/stats` is 404 and no ESPN endpoint checked has minutes.
+- **Minutes from FPL** (`league.json` `minutes`, pipeline only): strict name matching inside each club, never fuzzy;
+  547 of 603 matched; 56 without a match show "–". A spot check of 78 matched players found no wrong pairing. FPL
+  minutes include all league minutes this season (also at a previous Premier League club).
+- **Unavailable v zero.** Every figure is `null` when the source doesn't give it, shown as "–" (with "not available"
+  for screen readers) and explained under the figures; 0 only when the source says 0. Per-90 is derived (ESPN goals or
+  assists ÷ FPL minutes × 90), marked "*", and only from 90 minutes.
+- **Comparison.** Pick from the 20 squads (the search route's `useAllPlayers`, now shared); the URL keeps both ids so
+  a comparison can be shared and survives a reload. Better figure in bold, lower-is-better for fouls committed,
+  offsides, cards and goals conceded; a warning if ESPN labels the two squads' seasons differently. An id not in any
+  squad says so.
+- **Photos.** ESPN has headshots for few players (2 of 31 in one squad); a guessed CDN URL returns 404, so none is
+  built. The placeholder shows initials and "No photo from ESPN".
+- **Caching.** `athlete:<id>` (7-day max age, 30-minute fresh window) and `gamelog:<id>` (3 days, 10 minutes).
+  Profiles and comparison are lazy chunks (3.2 KB and 2.3 KB gzip); main chunk 82 KB gzip (was 79 KB).
+- **E2E fixtures:** `athlete.json` and `gamelog.json` for one recorded squad player (only the fields the parsers
+  read, no links); `recorded.json` gains `playerId` and `otherPlayerId`.
+
 ## Decisions
 
 - **JavaScript + JSDoc + `// @ts-check`** in `src/lib` and `src/config`, not TypeScript. Arsenal Hub is JS, so Phase 2

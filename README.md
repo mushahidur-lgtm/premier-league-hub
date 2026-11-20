@@ -21,6 +21,8 @@ live from ESPN's CDN. The injury story in the squad shot is the made-up fixture 
 | ![Transfer feed](docs/screenshots/transfers.png)    | ![Match centre](docs/screenshots/match.png)                     |
 | **Fixtures by gameweek, with filters**              | **Top scorers and assists**                                     |
 | ![Gameweek fixtures](docs/screenshots/gameweek.png) | ![Leaders](docs/screenshots/leaders.png)                        |
+| **Player profile**                                  | **Compare two players**                                         |
+| ![Player profile](docs/screenshots/player.png)      | ![Player comparison](docs/screenshots/compare.png)              |
 
 ## What's on it
 
@@ -34,6 +36,13 @@ live from ESPN's CDN. The injury story in the squad shot is the made-up fixture 
 - **Match centre** (`#/match/<event-id>`): score, key events, team stats, line-ups on a formation pitch.
 - **My club**: stored in `localStorage`; the home page leads with its position, gaps, form and next or live match,
   and the UI takes its colour as an accent, darkened until it passes WCAG AA.
+- **Player profiles** (`#/player/<espn-id>`): photo when ESPN has one, club, position, shirt number, nationality and
+  age; availability (ESPN's list plus any recent injury report from the news); this season's league figures
+  (appearances, minutes, goals, assists, shots, fouls, offsides, cards; saves and goals conceded for goalkeepers;
+  goals and assists per 90); the last ten league matches, linked to the match centre. Reached from squads, leaders
+  and search.
+- **Compare players** (`#/compare?a=<id>&b=<id>`): any two players in the current squads, same season and source,
+  side by side, with the better figure in bold.
 - **Search** (`#/search?q=`) across clubs, players (all 20 squads) and stories.
 
 ## Commands
@@ -82,7 +91,10 @@ de-duplicates, tags each story with clubs and players, and writes three same-ori
   its own date in `asOf`. If a source fails, that part is carried over from the live file with its older date
   (`carriedOver`) or listed in `missing`; it is never guessed, and it never stops the news deploy. The browser asks
   ESPN's scoreboard for the selected gameweek's days and shows ESPN's live score and match centre for each fixture
-  ESPN lists; the rest are shown from FPL, unlinked.
+  ESPN lists; the rest are shown from FPL, unlinked. It also holds `minutes`: FPL minutes and starts per ESPN player
+  id, matched inside each club by strict name rules only (full name, surname, last word of FPL's surname, or FPL's
+  short name, each unique in both squads). A player without a match has no entry, so the site shows his minutes as
+  unavailable rather than 0 (547 of 603 matched on 2026-11-20).
 
 `meta.json` also carries `status` (`ok` or `degraded`) and `problems`. A failed feed or squad is recorded there
 (error codes only; IP addresses are removed) and the run still deploys. Below a floor (fewer than half the feeds, or
@@ -149,6 +161,10 @@ the real use is lower: 183 budgeted scheduled minutes plus, say, 30 pushes × 2 
   list is described as "ESPN lists no injuries or suspensions. Its list can lag club news."
 - **Transfers** are a simplified feed: "Confirmed" only for completion wording from a reliable outlet with no hedge,
   otherwise "Reported". Manager news, finances, fan pieces, live blogs and newsletters are left out.
+- **Player figures never show a gap as 0.** Season totals come from ESPN's squad statistics (one source and season
+  for every player, so comparisons are like for like), the match log from ESPN's game log, minutes from FPL. A
+  figure the source doesn't give is "–" with "not available" for screen readers; per-90 figures are derived and
+  marked, and only shown from 90 minutes. No photo URL is guessed: ESPN has headshots for few players.
 - **Gameweeks are FPL's, labelled as such.** ESPN has no gameweek numbers, so the selector uses Fantasy Premier
   League's rounds. A postponed match sits in the round FPL moves it to, or under "Awaiting a new date"; no number is
   ever inferred. "Key fixtures" is a stated rule (top-six or bottom-four meetings by the current table), not an opinion.

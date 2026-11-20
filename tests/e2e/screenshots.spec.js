@@ -30,6 +30,19 @@ const settle = async (page) => {
   if (broken.length) console.warn("crests that didn't load:", broken);
 };
 
+/** For full-page shots: scroll through so lazy crests below the first screen load too. */
+const settleFull = async (page) => {
+  await page.evaluate(async () => {
+    for (let y = 0; y < document.body.scrollHeight; y += innerHeight / 2) {
+      window.scrollTo(0, y);
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    window.scrollTo(0, 0);
+  });
+  await page.waitForFunction(() => [...document.images].every((i) => i.complete));
+  await settle(page);
+};
+
 test("desktop pages", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop");
   await page.goto("./");
@@ -48,9 +61,19 @@ test("desktop pages", async ({ page }, info) => {
   await note.evaluate((el) => el.closest("li")?.scrollIntoView({ block: "center" }));
   await page.screenshot({ path: `${OUT}/squad-injury.png` });
 
+  await page.goto(`./#/player/${RECORDED.playerId}`);
+  await page.locator("section[aria-labelledby=recent-heading] tbody tr").first().waitFor();
+  await settleFull(page);
+  await page.screenshot({ path: `${OUT}/player.png`, fullPage: true });
+
+  await page.goto(`./#/compare?a=${RECORDED.playerId}&b=${RECORDED.otherPlayerId}`);
+  await page.locator("#compare-heading").waitFor();
+  await settleFull(page);
+  await page.screenshot({ path: `${OUT}/compare.png`, fullPage: true });
+
   await page.goto(`./#/match/${RECORDED.eventId}`);
   await page.getByRole("heading", { name: "Key events" }).waitFor();
-  await settle(page);
+  await settleFull(page);
   await page.screenshot({ path: `${OUT}/match.png`, fullPage: true });
 });
 
