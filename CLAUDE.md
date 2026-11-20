@@ -21,7 +21,7 @@ Premier League Hub: unofficial fan site for all 20 Premier League clubs. Success
 
 ## Stack
 
-React 18 · Vite 6 · Tailwind v4 (`@tailwindcss/vite`) · lucide-react · Vitest 3 (jsdom) · ESLint 9 flat config
+React 18 · Vite 6 · Tailwind v4 (`@tailwindcss/vite`) · lucide-react · Vitest 5 (jsdom) · ESLint 9 flat config
 (react-hooks) · Prettier 3 · Playwright (Phase 3, local only, Chromium while building). Node 22.
 
 JavaScript with JSDoc types; every file in `src/lib` and `src/config` starts with `// @ts-check`.

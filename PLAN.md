@@ -304,7 +304,7 @@ Phase 5 decisions:
    targeting in January?"). A club-page transfer list (`transferFeed(stories, { club })`) was not added.
 7. **Type checking:** files carry `// @ts-check` but nothing runs `tsc --noEmit`; adding it would surface loose JSDoc
    in the ported modules.
-8. **Dependencies:** `npm audit` advisories in Vitest 3's dev-only deps; upgrade Vitest and Vite together.
+8. **Dependencies:** ~~`npm audit` advisories in Vitest 3's dev-only deps~~ fixed in Phase 6 (Vitest 5).
 9. **Sky feeds** rate-limit bulk requests; if they start failing from GitLab's runners, `meta.json` will show it and
    BBC + Guardian still cover all 20 clubs.
 10. **Out of v1 scope:** club history, women's teams, fan predictions, a full transfer tracker, accounts.
@@ -381,7 +381,7 @@ tested and documented.
 ### Phase 6: technical quality and performance
 
 - [x] Assessment above
-- [ ] 6.4a Vitest 5 upgrade (fixes all audit findings; Vite stays 6.4)
+- [x] 6.4a Vitest 5 upgrade (fixes all audit findings; Vite stays 6.4): 431/431 tests in 24 files, `npm audit` 0
 - [ ] 6.1 `npm run typecheck` (TypeScript over the `// @ts-check` files), errors fixed, in CI
 - [ ] 6.2 Cache: versioning, per-kind max age and freshness, pruning, cheaper mount reads, empty-overwrite guard
 - [ ] 6.3 Pipeline: validate output before writing, degraded-run floor, clearer and address-free failure reporting;
@@ -395,6 +395,9 @@ tested and documented.
   ports straight across with its tests, with no type-stripping step.
 - **Dependency majors match Arsenal Hub** (React 18, Vite 6, plugin-react 4, Vitest 3, Tailwind 4) so ported code and
   tests behave the same. Scaffolded by hand because `npm create vite` now installs React 19.
+  Phase 6 moved Vitest to 5 (security fixes; it supports Vite 6.4). Evaluated and deferred: Vite 8 and
+  plugin-react 6 (new bundler, no advisory against Vite 6.4), React 19 (breaking, no need), ESLint 10 / react-hooks 7
+  (new rules to adopt deliberately), lucide 1.x (icon renames), jsdom 31 (no need). Revisit one at a time.
 - **Hash routing** (`src/lib/route.js`) so any route survives a refresh on GitLab Pages without a 404 fallback.
 - **`BASE` constant** in `src/config/site.js`, imported by `vite.config.js`.
 - **No dev CORS proxy.** Arsenal Hub's `devCorsProxy` allow-listed rss2json and feed hosts; dropped per rules 1 and 2.
@@ -415,7 +418,7 @@ tested and documented.
   before Phase 0, not in Phase 3.
 - A public GitHub mirror exists at https://github.com/mushahidur-lgtm/premier-league-hub (remote `github`, added after
   Phase 0 at the user's request). GitLab (`origin`) stays the main remote and the only host; push to both.
-- `npm audit` reports advisories in Vitest 3's dev-only dependencies (`@vitest/mocker`, `tinypool`); the fix is Vitest
+- (Fixed in Phase 6: Vitest 5.1.1 runs on Vite 6.4, so Vite did not need upgrading.) `npm audit` reported advisories in Vitest 3's dev-only dependencies (`@vitest/mocker`, `tinypool`); the fix is Vitest
   5 (breaking). They don't ship to the site. Revisit after the Phase 2 port by upgrading Vitest and Vite together.
 - GitLab Pages on gitlab.com needed three fixes before the first deploy worked:
   1. New accounts must complete identity verification before any CI job runs.

@@ -105,7 +105,8 @@ the real use is lower: 183 budgeted scheduled minutes plus, say, 30 pushes × 2 
   from the pipeline as same-origin JSON. This removes the rate-limit and outage risk of public relays and rss2json
   that Arsenal Hub had.
 - **JavaScript with JSDoc and `// @ts-check`** in `src/lib` and `src/config`, not TypeScript, so Arsenal Hub's modules
-  and tests ported straight across. Dependency majors match Arsenal Hub (React 18, Vite 6, Vitest 3, Tailwind 4).
+  and tests ported straight across. Dependency majors match Arsenal Hub (React 18, Vite 6, Tailwind 4), except Vitest, which is on 5 for its
+  security fixes.
 - **One `useSource(key)` hook per data section**, backed by keyed loaders and a keyed last-good-copy cache. Each
   section renders the same `Section` component, which has loading, empty, stale and error (with Try again) states and
   a "Source · updated …" line. For news, "updated" is the pipeline run, not the browser fetch.
