@@ -716,7 +716,20 @@ FPL investigation (2026-11-20, from the pipeline's user agent):
       finished match, and a live match labelled and re-fetched after a minute); lint/typecheck/format clean; main
       chunk 88 KB gzip, match chunk 6 KB. One unreproduced e2e failure during development (page stuck on "Loading
       page…" under load); 54 repeated runs and the full suite passed afterwards
-- [ ] Deploy and live check
+- [x] Deploy and live check: pipeline 3092631187, `test` 71 s + `pages` 46 s (no pipeline change). Live
+      `#/match/401879240` (Man Utd 4–4 Aston Villa): Timeline with the key-events and full-commentary toggle, goals
+      with assists by side, "Final" label, head-to-head "Man Utd 3 wins, 1 draw, Aston Villa 1 win" (equals ESPN's
+      five listed meetings), related news, no console errors. The browser first showed the previous build until
+      reloaded: the old index.html was still in its HTTP cache (see outstanding).
+
+Phase 11 outcome: done. Not built: formation changes (ESPN publishes none; stated on the page); ESPN's
+`lastFiveGames` (form is on club pages). Outstanding: after a deploy a returning visitor can be served the previous
+index.html from the browser cache for a while (GitLab Pages' default caching; worth checking its headers in Phase 13);
+the live poll was tested with a mocked in-play match only (no Premier League match was live during this session);
+`noImplicitAny`, deferred majors and v1 open issues 3–10 as before.
+
+Next recommended: **Phase 12 (personalisation)**: multiple followed clubs, favourite players, bookmarked news,
+favourite matches, recently viewed, customisable home, theme, optional notifications; `localStorage` only.
 
 ESPN summary check (2026-11-20, 6 finished matches, `site.api…/all/summary?event=<id>`, CORS OK, already used):
 
