@@ -590,14 +590,19 @@ unmatched players' minutes; `noImplicitAny` (196); deferred majors; v1 open issu
       in the query string and surviving a reload; competition stated as Premier League only (not a fake control)
 - [x] Charts: bar chart (one metric across clubs) and line chart (up to four clubs), each with a text summary and
       a table view; unit and e2e tests
-- [ ] Deploy, CI timing and live check (below)
+- [x] Deploy, CI timing and live check: pipeline 3092376652, `test` 64 s + `pages` 35 s (the 40 team-statistics
+      requests add a few seconds; still inside the 2-minute push budget); `pages` log "stats.json: missing [], carried
+      over []". Live: 20 clubs this season, 17 last season ("Not in the Premier League in 2025-26: Coventry, Hull,
+      Ipswich"), Haaland's two seasons, progression ends 1st Arsenal 27 pts, 2nd Brighton, 3rd Man City, 4th Liverpool
+      (matches ESPN's table); no error sections, no console errors. Local: 563 unit tests in 29 files, 48 e2e (16 tests
+      × 3 widths), lint/typecheck/audit clean; main chunk 85 KB gzip, Statistics chunk 7 KB gzip.
 
 Phase 9 decisions:
 
 - **Team statistics from ESPN's core API**
   (`sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/seasons/<year>/types/1/teams/<id>/statistics`, CORS OK)
   via the pipeline, not the browser: 20 × ~24 KB per season would load on every visit; trimmed to 22 figures per club
-  in `stats.json` (~160 KB with the players, ~25 KB gzipped, loaded only on `#/stats`). Season years come from
+  in `stats.json` (~160 KB with the players, loaded only on `#/stats`). Season years come from
   ESPN (`season.year`), not hard-coded. A 404 for a season = the club wasn't in the league ("absent"). A 0 where 0
   is impossible over a season (possession, passes, shots, corners, fouls, saves, tackles, interceptions, xG) is
   stored as null: ESPN reports 2024-25 possession as 0. xG/xGA are ESPN's averages per match, this season only.
@@ -617,3 +622,14 @@ Phase 9 decisions:
 - **Labels** are `<label for>` the control (not wrapping it), so each control's accessible name is exactly its label.
 - **Not built:** previous-season player tables (600 requests) and previous-season progression (needs results per
   match for clubs no longer in the league); team xA (no source); other competitions (not in this data).
+
+Phase 9 outcome: done. **Found in the live check (not fixed; affects the whole site):** GitLab Pages serves nothing
+compressed: `index-*.js` arrives as 258 KB (85 KB gzipped), `news.json` 300 KB, `stats.json` 161 KB. Pages serves a
+precompressed copy only when a `.gz` file exists beside the original. Fix: in the `pages` job, after `mv dist
+public`, write `<file>.gz` for every .html/.js/.css/.json/.svg (`gzip -9 -c f > f.gz`; busybox gzip is in
+node:22-alpine). That changes the deploy job, so it waits for the owner's go-ahead.
+
+Next recommended: **Phase 10 (Fantasy Premier League)**: FPL is already fetched by the pipeline (bootstrap-static
+has prices, ownership, form, points, xG/xA; fixtures have difficulty). Check `element-summary` (per-player
+fixtures and history) and rate limits before building the transfer assistant. Outstanding: compression (above),
+`noImplicitAny` (196), deferred majors, the 56 players without FPL minutes, v1 open issues 3–10.
