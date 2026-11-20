@@ -41,7 +41,7 @@ Before every commit: `npm run lint && npm run typecheck && npm test && npm run b
 
 ## Conventions
 
-- Hash routing (`#/`, `#/club/<slug>`, `#/match/<event-id>`, `#/player/<espn-id>`, `#/compare?a=&b=`, `#/stats?view=&season=&club=&player=&metric=&per=`, `#/search?q=`),
+- Hash routing (`#/`, `#/club/<slug>`, `#/match/<event-id>`, `#/player/<espn-id>`, `#/compare?a=&b=`, `#/stats?view=&season=&club=&player=&metric=&per=`, `#/fpl?view=&pos=&club=&max=&sort=&out=&bank=&paid=&gws=&doubtful=&a=&b=`, `#/search?q=`),
   parsed in `src/lib/route.js`.
 - Vite `base` comes from `BASE` in `src/config/site.js` (change it if the project is renamed).
 - Everything club-specific lives in `src/config/clubs.js` (ESPN id, slug, short name, colours, feeds). Nothing else in
@@ -75,7 +75,8 @@ Before every commit: `npm run lint && npm run typecheck && npm test && npm run b
 - Pipeline: `scripts/fetch-data.mjs`, Node 22, **no npm dependencies**. Fetches feeds, de-duplicates, tags clubs and
   players, writes `public/data/news.json` + `public/data/meta.json` (generated time, per-feed status) +
   `public/data/league.json` (FPL gameweeks and fixtures, league form, ESPN goals/assists leaders, FPL minutes) +
-  `public/data/stats.json` (ESPN core API season team statistics this season and last; player figures this season). Everything is
+  `public/data/stats.json` (ESPN core API season team statistics this season and last; player figures this season) +
+  `public/data/fpl.json` (FPL players, fixture difficulty, squad rules; from the same two FPL responses). Everything is
   validated (`scripts/lib/validate-data.mjs`) before it is written.
 - Fantasy Premier League (`fantasy.premierleague.com/api`) sends **no CORS headers**: pipeline only, never from the
   browser. It is the only source of gameweek numbers; label them as FPL's and never infer one.

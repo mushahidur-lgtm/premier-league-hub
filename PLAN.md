@@ -638,3 +638,39 @@ Next recommended: **Phase 10 (Fantasy Premier League)**: FPL is already fetched 
 has prices, ownership, form, points, xG/xA; fixtures have difficulty). Check `element-summary` (per-player
 fixtures and history) and rate limits before building the transfer assistant. Outstanding: compression (above),
 `noImplicitAny` (196), deferred majors, the 56 players without FPL minutes, v1 open issues 3–10.
+
+### Phase 10: Fantasy Premier League
+
+- [x] Endpoints, reliability, rate limits and freshness checked (below), before building
+- [x] `data/fpl.json` from the pipeline (separate from the ESPN files), validated, carried over on failure
+- [x] FPL section `#/fpl`: players (price, ownership, points, form, upcoming fixtures and difficulty), filters
+- [x] Transfer assistant: player out, budget calculator (bank + selling price by FPL's sell-on rule), alternatives
+      by budget, form, fixtures and playing time; FPL player comparison
+- [x] Unit and e2e tests; README (with a screenshot); CLAUDE.md route and data lists. Local: 584 unit tests in 31
+      files (15 new in `fpl.test.js`), 60 e2e (20 tests × 3 widths; 4 new FPL tests with axe and overflow checks, plus
+      an FPL route in the reload test),
+      lint/typecheck/format clean; main chunk 87 KB gzip (was 85: `parseFpl` sits with the data layer), FPL chunk 6 KB
+- [ ] Deploy and live check
+
+FPL investigation (2026-11-20, from the pipeline's user agent):
+
+| Endpoint                | Cache headers                               | Size   | Gives                                                                                                                                                                                                                                                                                           |
+| ----------------------- | ------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bootstrap-static/`     | `max-age=300, stale-if-error=3600`, CDN hit | 1.8 MB | 672 players: `now_cost`, `selected_by_percent`, `total_points`, `points_per_game`, `form`, `minutes`, `starts`, `status`, `chance_of_playing_next_round`, `news`, xG/xA, `ep_next`; gameweeks with deadlines; squad rules in `game_settings` (15 players, 3 per club, £100.0m, sell-on fee 0.5) |
+| `fixtures/`             | `no-cache`, CDN hit                         | 346 KB | All 380 fixtures with gameweek and `team_h_difficulty` / `team_a_difficulty` (FPL's fixture difficulty, 1–5)                                                                                                                                                                                    |
+| `element-summary/<id>/` | `no-cache`                                  | ~17 KB | One player's remaining fixtures and per-gameweek history                                                                                                                                                                                                                                        |
+| `event-status/`         | `no-cache`                                  | 227 B  | Whether bonus points and the gameweek's points are final                                                                                                                                                                                                                                        |
+
+- No CORS on any of them (as in v2's check): pipeline only. No rate-limit headers (`x-ratelimit`, `retry-after`)
+  on any response; the API is unofficial and documents no limits. Responses come from a CDN cache (bootstrap up to
+  5 minutes old), so FPL's own numbers lag by minutes, ours by up to the 4-hour pipeline interval: every FPL figure
+  says when the pipeline collected it.
+- **No new requests in Phase 10.** Upcoming fixtures and difficulty come from `fixtures/` and recent form from
+  FPL's own `form` field (points per match over the last 30 days), both already fetched for `league.json`.
+  `element-summary` for every player would be 672 requests per run (~4,000 a day) for per-gameweek history the
+  assistant doesn't need: not used. CI minutes stay as they are.
+- 106 of 672 players have `can_select: false` (all `status: "u"`, left the league or unavailable for the season):
+  left out. `chance_of_playing_next_round: null` means no flag (fit), not 0 %.
+- The site can't see anyone's FPL team (`entry/` needs sign-in and has no CORS), so the assistant asks for the
+  money in the bank and, optionally, the price paid; it can't check the 3-per-club limit against a squad it can't
+  see, and says so.

@@ -12,19 +12,21 @@ Live: **https://mushahidur.gitlab.io/premier-league-hub/** · Source: [GitLab](h
 Taken by Playwright from the production build (`npm run screenshots`) with the recorded e2e fixtures. Club crests are
 live from ESPN's CDN. The injury story in the squad shot is the made-up fixture story the e2e tests use for rule 3.
 
-| League home (desktop)                                | League home (375 px)                                            |
-| ---------------------------------------------------- | --------------------------------------------------------------- |
-| ![League home](docs/screenshots/home.png)            | ![League home on a phone](docs/screenshots/home-mobile.png)     |
-| **Club page**                                        | **Squad: a "reported injured" note from the news**              |
-| ![Club page](docs/screenshots/club.png)              | ![Squad with an injury note](docs/screenshots/squad-injury.png) |
-| **Transfers and contracts (home)**                   | **Match centre**                                                |
-| ![Transfer feed](docs/screenshots/transfers.png)     | ![Match centre](docs/screenshots/match.png)                     |
-| **Fixtures by gameweek, with filters**               | **Top scorers and assists**                                     |
-| ![Gameweek fixtures](docs/screenshots/gameweek.png)  | ![Leaders](docs/screenshots/leaders.png)                        |
-| **Player profile**                                   | **Compare two players**                                         |
-| ![Player profile](docs/screenshots/player.png)       | ![Player comparison](docs/screenshots/compare.png)              |
-| **Statistics: teams**                                | **Statistics: position by gameweek**                            |
-| ![Team statistics](docs/screenshots/stats-teams.png) | ![Position by gameweek](docs/screenshots/stats-progression.png) |
+| League home (desktop)                                         | League home (375 px)                                            |
+| ------------------------------------------------------------- | --------------------------------------------------------------- |
+| ![League home](docs/screenshots/home.png)                     | ![League home on a phone](docs/screenshots/home-mobile.png)     |
+| **Club page**                                                 | **Squad: a "reported injured" note from the news**              |
+| ![Club page](docs/screenshots/club.png)                       | ![Squad with an injury note](docs/screenshots/squad-injury.png) |
+| **Transfers and contracts (home)**                            | **Match centre**                                                |
+| ![Transfer feed](docs/screenshots/transfers.png)              | ![Match centre](docs/screenshots/match.png)                     |
+| **Fixtures by gameweek, with filters**                        | **Top scorers and assists**                                     |
+| ![Gameweek fixtures](docs/screenshots/gameweek.png)           | ![Leaders](docs/screenshots/leaders.png)                        |
+| **Player profile**                                            | **Compare two players**                                         |
+| ![Player profile](docs/screenshots/player.png)                | ![Player comparison](docs/screenshots/compare.png)              |
+| **Statistics: teams**                                         | **Statistics: position by gameweek**                            |
+| ![Team statistics](docs/screenshots/stats-teams.png)          | ![Position by gameweek](docs/screenshots/stats-progression.png) |
+| **FPL transfer assistant**                                    |                                                                 |
+| ![FPL transfer assistant](docs/screenshots/fpl-assistant.png) |                                                                 |
 
 ## What's on it
 
@@ -52,6 +54,16 @@ live from ESPN's CDN. The injury story in the squad shot is the made-up fixture 
   - _Players_: this season's leaders for goals, assists, FPL expected goals and assists, shots, minutes and more,
     per 90 optional, by club; one player's this season and last side by side.
   - _Points and position_: each club's place or points after every gameweek, up to four clubs at once.
+- **Fantasy Premier League** (`#/fpl`), the fantasy game's own figures, kept apart from the ESPN data and labelled
+  as FPL's; every filter is kept in the address:
+  - _Players_: price, ownership, total points, form, share of minutes and the next 1, 3 or 5 gameweeks' fixtures
+    with FPL's difficulty (1–5, the number always shown; blank and double gameweeks as FPL has them), by position,
+    club and price, sortable.
+  - _Transfer assistant_: pick the player to sell; enter the money in the bank and, optionally, what you paid
+    (FPL's selling price keeps half of any rise, rounded down to £0.1m). It lists same-position players you can
+    afford whom FPL expects to be available (doubtful ones on request), sorted by the figure you choose. It can't
+    see your FPL team, so it reminds you of the three-per-club limit instead of pretending to check it.
+  - _Compare_: any two FPL players side by side, including FPL's xG, xA and projected points.
 - **Search** (`#/search?q=`) across clubs, players (all 20 squads) and stories.
 
 ## Commands
@@ -94,6 +106,12 @@ de-duplicates, tags each story with clubs and players, and writes three same-ori
 - `data/meta.json`: `generatedAt`, `durationMs`, `counts` (`feeds`, `feedsOk`, `rawItems`, `items`, `rostersOk`,
   `players`, `itemsWithPlayers`), and per-source status lists `feeds[]` (`club`, `outlet`, `url`, `ok`, `status`,
   `items`, `error`, `ms`) and `rosters[]` (`club`, `ok`, `players`, `error`), plus a `league` summary.
+- `data/fpl.json` (read only by the FPL page): FPL's pickable players (price in tenths of £1m, ownership, points,
+  points per match, form, minutes, starts, status, chance of playing, news, xG, xA, projected points, and the ESPN
+  id where the player is matched, for a profile link), each club's matches played and next six gameweeks' fixtures
+  with FPL's difficulty, the current and next gameweek with its deadline, and the squad rules from FPL's settings.
+  Built from the two FPL responses league.json already fetches (no extra requests). If they can't be used, the live
+  file is carried over unchanged (`carriedOver: true`, its own `asOf`); it never stops the news deploy.
 - `data/stats.json` (read only by the Statistics page): ESPN's season team statistics for this season and last, from
   ESPN's core API (one small request per club and season, trimmed to the 22 figures shown), and this season's
   player figures from the squads with FPL minutes, expected goals and expected assists. A club that wasn't in the
@@ -196,6 +214,11 @@ the real use is lower: 183 budgeted scheduled minutes plus, say, 30 pushes × 2 
 - **Gameweeks are FPL's, labelled as such.** ESPN has no gameweek numbers, so the selector uses Fantasy Premier
   League's rounds. A postponed match sits in the round FPL moves it to, or under "Awaiting a new date"; no number is
   ever inferred. "Key fixtures" is a stated rule (top-six or bottom-four meetings by the current table), not an opinion.
+- **Fantasy Premier League is its own integration.** FPL sends no CORS headers, so only the pipeline reads it, and
+  it writes its own file (`fpl.json`), parsed by its own module (`src/lib/fpl.js`) for its own page. The assistant
+  ranks by figures you can see and choose (form, points, points per match, fixture difficulty, share of minutes,
+  price, ownership), never an invented score. Per-player history (`element-summary`, one request per player) is not
+  fetched: 672 requests per run for data the assistant doesn't need.
 - **Accent colours** are computed (`src/lib/accent.js`): a club's primary colour is darkened until it reaches 4.5:1
   on the page and on its own tint; raw club colours are decoration only. Tested for all 20 clubs.
 - **Crests** come from ESPN's CDN resized by its image combiner (`src/lib/crest.js`): about 4 KB per crest instead of
