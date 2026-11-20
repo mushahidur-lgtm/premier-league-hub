@@ -61,3 +61,24 @@ export function tableGaps(rows, teamId) {
     inDrop,
   };
 }
+
+/**
+ * "3 pts clear of 2nd", "level on points with 4th", "2 pts behind safety".
+ * @param {number} n points difference (positive = ahead)
+ * @param {string} what
+ */
+export const gapText = (n, what) =>
+  n === 0 ? `level on points with ${what}` : `${Math.abs(n)} pts ${n > 0 ? "clear of" : "behind"} ${what}`;
+
+/**
+ * The gaps that matter for a club, as one line: to 2nd, to the top-four line, to the drop zone.
+ * @param {TableGaps} g
+ */
+export const gapsLine = (g) =>
+  [
+    g.second != null && gapText(g.second, "2nd"),
+    g.topFour != null && gapText(g.topFour, g.inside ? "5th" : "4th"),
+    g.safety != null && gapText(g.safety, g.inDrop ? "safety" : "the drop zone"),
+  ]
+    .filter(Boolean)
+    .join("; ");

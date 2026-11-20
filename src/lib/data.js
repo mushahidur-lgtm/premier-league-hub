@@ -21,6 +21,7 @@ import { FetchError } from "./errors.js";
 import { clearMemo, fetchJSON, getNetDiagnostics } from "./net.js";
 import { parseRoster, parseSchedules, parseStandings, parseSummary } from "./parsers.js";
 import { parseNewsFile } from "./news.js";
+import { parseLeague } from "./league.js";
 import { persistentStats } from "./diagnostics.js";
 import { isObj } from "./validate.js";
 import { OUTLETS } from "./sources.js";
@@ -54,6 +55,11 @@ export const SOURCES = {
   standings: { name: "ESPN", detail: "Premier League table" },
   scoreboard: { name: "ESPN", detail: "Premier League scoreboard" },
   summary: { name: "ESPN", detail: "match summary" },
+  scoreboards: { name: "ESPN", detail: "live scores for this gameweek" },
+  league: {
+    name: "Fantasy Premier League and ESPN",
+    detail: "gameweeks, form and leaders, collected by this site's data pipeline",
+  },
   news: {
     name: Object.values(OUTLETS)
       .map((o) => o.name)
@@ -67,7 +73,7 @@ export const SOURCES = {
  * news: the pipeline runs every 4 hours, so a news.json older than ~2 missed runs means it has stopped.
  * @type {Record<string, number>}
  */
-export const STALE_AFTER_MS = { news: 10 * 3600e3 };
+export const STALE_AFTER_MS = { news: 10 * 3600e3, league: 10 * 3600e3 };
 
 /**
  * When the data itself was produced: the pipeline's `generatedAt` for news, otherwise the fetch time.
@@ -77,7 +83,12 @@ export const STALE_AFTER_MS = { news: 10 * 3600e3 };
  * @returns {Date | null}
  */
 export function asOfOf(key, data, savedAt) {
-  if (kindOf(key) === "news" && data?.generatedAt instanceof Date && !Number.isNaN(data.generatedAt.getTime())) {
+  const kind = kindOf(key);
+  if (
+    (kind === "news" || kind === "league") &&
+    data?.generatedAt instanceof Date &&
+    !Number.isNaN(data.generatedAt.getTime())
+  ) {
     return data.generatedAt;
   }
   return savedAt;
@@ -114,6 +125,21 @@ export const LOADERS = {
   standings: async () => ({ data: parseStandings(await fetchJSON(URLS.standings)) }),
   /** @param {string} [dates] @returns {Promise<LoadResult>} */
   scoreboard: async (dates) => ({ data: parseSchedules([await fetchJSON(URLS.scoreboard(dates))], null) }),
+  /**
+   * Several days of the league scoreboard (one request per day, "YYYYMMDD"), merged: a gameweek's live scores.
+   * @param {string[]} days @returns {Promise<LoadResult>}
+   */
+  scoreboards: async (days) => ({
+    data: parseSchedules(await Promise.all(days.map((d) => fetchJSON(URLS.scoreboard(d)))), null),
+  }),
+  /** Gameweeks, fixtures, form and leaders from the data pipeline. @returns {Promise<LoadResult>} */
+  league: async () => {
+    const data = parseLeague(await fetchJSON(dataUrl("league.json")));
+    const warnings = [];
+    if (data.carriedOver.length) warnings.push(`Not refreshed at the last update: ${data.carriedOver.join(", ")}`);
+    if (data.missing.length) warnings.push(`Unavailable: ${data.missing.join(", ")}`);
+    return { data, warnings };
+  },
   /** @param {string} eventId @param {string} [league] @returns {Promise<LoadResult>} */
   summary: async (eventId, league) => ({ data: parseSummary(await fetchJSON(URLS.summary(eventId, league))) }),
   /**
@@ -152,7 +178,12 @@ export function loaderFor(key) {
   switch (kind) {
     case "standings":
     case "news":
+    case "league":
       return id ? null : LOADERS[kind];
+    case "scoreboards": {
+      const days = (id ?? "").split(",").filter((d) => /^\d{8}$/.test(d));
+      return days.length ? () => LOADERS.scoreboards(days) : null;
+    }
     case "scoreboard":
       return () => LOADERS.scoreboard(id || undefined);
     case "schedule":
@@ -195,11 +226,13 @@ export const cacheConfig = {
     scoreboard: 1 * DAY, // a day-old scoreboard is still worth showing, marked stale, while offline
     standings: 2 * DAY,
     news: 2 * DAY,
+    league: 2 * DAY,
+    scoreboards: 1 * DAY,
     schedule: 3 * DAY,
     roster: 7 * DAY, // squads change slowly
     summary: 14 * DAY, // a finished match's summary doesn't change
   },
-  freshMs: { default: 0, standings: 5 * MIN, news: 15 * MIN, roster: 30 * MIN },
+  freshMs: { default: 0, standings: 5 * MIN, news: 15 * MIN, league: 15 * MIN, roster: 30 * MIN },
 };
 
 /** @param {{ maxBytes?: number, maxAgeMs?: Record<string, number>, freshMs?: Record<string, number> }} [partial] */
@@ -214,7 +247,18 @@ const maxAgeOf = (/** @type {string} */ key) => setting(cacheConfig.maxAgeMs, ke
 /** Is a copy saved at `savedAt` still current for this key? @param {string} key @param {Date} savedAt */
 export const isFresh = (key, savedAt, now = Date.now()) => now - savedAt.getTime() < setting(cacheConfig.freshMs, key);
 
-const DATE_KEYS = new Set(["date", "updated", "savedAt", "dob", "generatedAt"]);
+const DATE_KEYS = new Set([
+  "date",
+  "updated",
+  "savedAt",
+  "dob",
+  "generatedAt",
+  "kickoff",
+  "deadline",
+  "gameweeksAt",
+  "formAt",
+  "leadersAt",
+]);
 const revive = (/** @type {string} */ k, /** @type {unknown} */ v) =>
   DATE_KEYS.has(k) && typeof v === "string" ? new Date(v) : v;
 const validDate = (/** @type {unknown} */ d) => d instanceof Date && !Number.isNaN(d.getTime());
@@ -239,7 +283,22 @@ function sanitizeNews(data) {
 }
 /** Checks by kind, so every "schedule:<espnId>" key is sanitised. */
 /** @type {Record<string, (data: any) => any>} */
-const CACHE_CHECKS = { schedule: sanitizeSchedule, scoreboard: sanitizeSchedule, news: sanitizeNews };
+const CACHE_CHECKS = {
+  schedule: sanitizeSchedule,
+  scoreboard: sanitizeSchedule,
+  scoreboards: sanitizeSchedule,
+  news: sanitizeNews,
+  // A saved league file is re-checked like a fresh one (dates revived, malformed records dropped).
+  league: (/** @type {any} */ d) => {
+    try {
+      return isObj(d)
+        ? parseLeague({ ...d, asOf: { gameweeks: d.gameweeksAt, form: d.formAt, leaders: d.leadersAt } })
+        : null;
+    } catch {
+      return null;
+    }
+  },
+};
 
 /**
  * One parsed copy of the cache blob (up to maxBytes), reused while the stored string is unchanged and
@@ -381,7 +440,7 @@ if (typeof window !== "undefined") /** @type {any} */ (window).plhDiagnostics = 
 /* ────────────────────────────── Shared loading ────────────────────────────── */
 
 /** Kinds whose real answer is never empty. */
-const NEVER_EMPTY = new Set(["standings", "roster", "news"]);
+const NEVER_EMPTY = new Set(["standings", "roster", "news", "league"]);
 
 /** @type {Map<string, { token: number, promise: Promise<LoadResult & { savedAt: Date, fromCache?: boolean }> }>} */
 const flights = new Map();
