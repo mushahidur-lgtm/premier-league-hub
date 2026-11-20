@@ -60,6 +60,8 @@ test("home dashboard: gameweek selector, filters, form, leaders and key fixtures
   await expect(fixtures.getByRole("button", { name: /^Completed/ })).toHaveText("Completed 10");
   await expect(rows.first()).toContainText(/\d–\d/);
   await expect(fixtures.getByText(/aren’t on ESPN’s scoreboard/)).toBeVisible();
+  // A finished gameweek's scores are not labelled live.
+  await expect(fixtures.getByText(/^Scores: ESPN/)).not.toContainText("live");
   await fixtures.getByRole("button", { name: "Next gameweek" }).click();
   await expect(gw.locator("option:checked")).toHaveText("Gameweek 6");
   await fixtures.getByRole("button", { name: "Previous gameweek" }).click();
@@ -71,6 +73,7 @@ test("home dashboard: gameweek selector, filters, form, leaders and key fixtures
   await fixtures.getByRole("button", { name: /^Completed/ }).click();
   await expect(fixtures.getByRole("button", { name: /^Completed/ })).toHaveAttribute("aria-pressed", "true");
   await expect(fixtures.getByText("No completed matches in Gameweek 11.")).toBeVisible();
+  await expect(fixtures.getByText(/^Scores: ESPN · live/)).toBeVisible();
   await expect(fixtures.getByText(/Fantasy Premier League, via this site's pipeline · updated/)).toBeVisible();
 
   // Form column, from FPL's fixture list, with its own source line.
