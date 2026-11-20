@@ -776,6 +776,18 @@ Survey (2026-11-20):
 - [x] Mobile standings, match cards, player cards: checked at 375 px in both themes; no overflow or clipping
       found, nothing redesigned (the brief: avoid unnecessary redesigns)
 - [x] New-version notice (the Pages caching above)
-- [x] Tests and README. Local: 612 unit tests in 34 files, 76 e2e (new: dark mode axe and overflow on 12 routes,
+- [x] Tests and README. Local: 613 unit tests in 34 files, 76 e2e (new: dark mode axe and overflow on 12 routes,
       theme button, new-version notice, "/" shortcut and clear button); lint/typecheck/format clean
-- [ ] Deploy and live check
+- [x] Deploy and live check: pipelines 3094136647 and 3094153947 (`test` 73 s + `pages` 40 s). Live
+      `version.json` = the deployed commit (`e94628c1`); dark theme applied before first paint with dark crests and
+      no broken images; no notice on the current build. The first live check found console 404s for the one club with
+      no ESPN dark crest (fallback worked, but noisy): now marked in `clubs.js` and never requested; a fresh tab on
+      the home and match pages shows no console errors.
+
+Phase 13 outcome: done. Not built: a redesign of the table, cards or navigation (checked at 375 px in both themes;
+nothing fell short, and the brief says avoid unnecessary redesigns); Phase 12 (personalisation), skipped at the
+owner's request. Outstanding: README screenshots are light-theme only; the new-version notice was verified by e2e
+with a mocked newer `version.json` (on the live site the reload revalidated straight to the new build);
+`noImplicitAny`, deferred majors and v1 open issues 3–10 as before.
+
+Next recommended: **Phase 12 (personalisation)**, the one phase of the v2 brief not yet built.
