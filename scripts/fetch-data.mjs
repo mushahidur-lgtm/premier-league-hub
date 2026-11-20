@@ -21,9 +21,11 @@ import {
   runHealth,
   validateLeague,
   validateMeta,
+  validateFpl,
   validateNews,
   validateStats,
 } from "./lib/validate-data.mjs";
+import { buildFpl } from "./lib/fpl.mjs";
 import { buildLeague, carryOver } from "./lib/league.mjs";
 import { buildStats, carryOverStats, rosterStats, withFpl } from "./lib/stats.mjs";
 import { SITE_URL } from "../src/config/site.js";
@@ -120,6 +122,7 @@ async function main() {
     minutes: league.file?.minutes ?? null,
     bootstrap: league.bootstrap,
   });
+  const fpl = await fplData(now, league);
   const items = buildNews(
     results.map((r) => ({ items: r.items, club: r.feed.club })),
     CLUBS,
@@ -164,6 +167,14 @@ async function main() {
           problems: stats.problems,
         }
       : { missing: ["current", "previous", "players"], carriedOver: [], asOf: null, problems: stats.problems },
+    fpl: fpl.file
+      ? {
+          asOf: fpl.file.asOf,
+          carriedOver: fpl.file.carriedOver,
+          players: fpl.file.players.length,
+          problems: fpl.problems,
+        }
+      : { asOf: null, carriedOver: false, players: 0, problems: fpl.problems },
     league: league.file
       ? {
           missing: league.file.missing,
@@ -197,6 +208,12 @@ async function main() {
   await writeFile(join(OUT_DIR, "meta.json"), JSON.stringify(meta, null, 2));
   if (league.file) await writeFile(join(OUT_DIR, "league.json"), JSON.stringify(league.file));
   if (stats.file) await writeFile(join(OUT_DIR, "stats.json"), JSON.stringify(stats.file));
+  if (fpl.file) await writeFile(join(OUT_DIR, "fpl.json"), JSON.stringify(fpl.file));
+  const fplNote = fpl.file?.carriedOver ? `, carried over from ${fpl.file.asOf}` : "";
+  console.log(
+    `fpl.json: ${fpl.file ? `${fpl.file.players.length} players${fplNote}` : "not written"}` +
+      `${fpl.problems.length ? `; ${fpl.problems.join("; ")}` : ""}`,
+  );
   console.log(
     `stats.json: ${stats.file ? `missing [${stats.file.missing}], carried over [${stats.file.carriedOver}]` : "not written"}` +
       `${stats.problems.length ? `; ${stats.problems.join("; ")}` : ""}`,
@@ -231,7 +248,7 @@ async function fetchJson(url) {
  * that copy's date, or left out and listed in `missing`.
  * @param {Date} now
  * @param {any[]} squads ESPN squad players, for FPL minutes
- * @returns {Promise<{ file: any, problems: string[], bootstrap: any, year: number | null }>}
+ * @returns {Promise<{ file: any, problems: string[], bootstrap: any, fixtures: any, year: number | null }>}
  */
 async function leagueData(now, squads) {
   /** @type {string[]} */
@@ -265,8 +282,41 @@ async function leagueData(now, squads) {
     if (previous && !validateLeague(previous, { clubSlugs: slugs }).length) file = carryOver(file, previous);
   }
   const year = Number.isInteger(stats?.season?.year) ? stats.season.year : null;
-  if (validateLeague(file, { clubSlugs: slugs }).length) return { file: null, problems, bootstrap, year };
-  return { file, problems, bootstrap, year };
+  if (validateLeague(file, { clubSlugs: slugs }).length) return { file: null, problems, bootstrap, fixtures, year };
+  return { file, problems, bootstrap, fixtures, year };
+}
+
+/**
+ * fpl.json from the FPL responses league.json already fetched (no extra requests). If they can't be used, the
+ * live fpl.json is carried over as it is (its own `asOf`, `carriedOver: true`); failing that, nothing is written
+ * and the page says FPL data is unavailable. Never blocks the news deploy.
+ * @param {Date} now
+ * @param {{ bootstrap: any, fixtures: any, file: any }} league
+ * @returns {Promise<{ file: any, problems: string[] }>}
+ */
+async function fplData(now, league) {
+  const slugs = { clubSlugs: new Set(CLUBS.map((c) => c.slug)) };
+  const built = buildFpl({
+    bootstrap: league.bootstrap,
+    fixtures: league.fixtures,
+    clubs: CLUBS,
+    now,
+    espnMatches: league.file?.minutes ?? null,
+  });
+  const problems = [...built.problems];
+  if (built.fpl) {
+    const invalid = validateFpl(built.fpl, slugs);
+    if (!invalid.length) return { file: built.fpl, problems };
+    problems.push(`fpl.json failed validation: ${invalid.slice(0, 5).join("; ")}`);
+  }
+  try {
+    const previous = await fetchJson(`${SITE_URL}data/fpl.json`);
+    if (!validateFpl(previous, slugs).length) return { file: { ...previous, carriedOver: true }, problems };
+    problems.push("previous fpl.json failed validation");
+  } catch (err) {
+    problems.push(`previous fpl.json: ${describeError(err, TIMEOUT_MS)}`);
+  }
+  return { file: null, problems };
 }
 
 /** The season year ESPN uses ("2026" for 2026-27), from the date when ESPN didn't say: seasons start in August. */

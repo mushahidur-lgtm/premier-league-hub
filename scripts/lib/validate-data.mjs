@@ -258,3 +258,68 @@ export function validateStats(stats, { clubSlugs }) {
   }
   return p;
 }
+
+const FPL_POSITIONS = new Set(["GKP", "DEF", "MID", "FWD"]);
+const FPL_STATUSES = new Set(["a", "d", "i", "s", "u", "n"]);
+const intOrNull = (/** @type {unknown} */ v) => v === null || Number.isInteger(v);
+
+/**
+ * Problems with an fpl.json object; [] when it is fine.
+ * @param {any} fpl
+ * @param {{ clubSlugs: Set<string> }} ctx
+ * @returns {string[]}
+ */
+export function validateFpl(fpl, { clubSlugs }) {
+  const p = [];
+  if (!isObj(fpl)) return ["fpl.json is not an object"];
+  if (!isIso(fpl.generatedAt)) p.push("generatedAt is not a date");
+  if (!isIso(fpl.asOf)) p.push("asOf is not a date");
+  if (typeof fpl.carriedOver !== "boolean") p.push("carriedOver is not a boolean");
+  const r = fpl.rules;
+  if (!isObj(r) || !["squadSize", "perClub", "budget"].every((k) => intOrNull(r[k])) || !numOrNull(r.sellOnFee))
+    p.push("rules malformed");
+  const gw = (/** @type {any} */ g) =>
+    g === null || (isObj(g) && Number.isInteger(g.id) && (g.deadline === null || isIso(g.deadline)));
+  if (!isObj(fpl.gameweeks) || !gw(fpl.gameweeks.current) || !gw(fpl.gameweeks.next)) p.push("gameweeks malformed");
+  if (!Array.isArray(fpl.players) || fpl.players.length < 100) p.push("players missing or too few");
+  else {
+    const bad = fpl.players.filter(
+      (/** @type {any} */ x) =>
+        !isObj(x) ||
+        !Number.isInteger(x.id) ||
+        typeof x.name !== "string" ||
+        typeof x.fullName !== "string" ||
+        !clubSlugs.has(x.club) ||
+        !FPL_POSITIONS.has(x.pos) ||
+        !isCount(x.price) ||
+        !FPL_STATUSES.has(x.status) ||
+        typeof x.news !== "string" ||
+        !(x.espn === null || (typeof x.espn === "string" && /^\d+$/.test(x.espn))) ||
+        !["owned", "ppg", "form", "xg", "xa", "ep"].every((k) => numOrNull(x[k])) ||
+        !["points", "minutes", "starts", "chance"].every((k) => intOrNull(x[k])),
+    );
+    if (bad.length) p.push(`${bad.length} players malformed`);
+  }
+  if (!isObj(fpl.clubs) || Object.keys(fpl.clubs).length !== clubSlugs.size) p.push("clubs missing");
+  else
+    for (const [slug, c] of Object.entries(fpl.clubs)) {
+      const ok =
+        clubSlugs.has(slug) &&
+        isObj(c) &&
+        isCount(c.played) &&
+        Array.isArray(c.fixtures) &&
+        c.fixtures.every(
+          (/** @type {any} */ f) =>
+            isObj(f) &&
+            intOrNull(f.gw) &&
+            (f.kickoff === null || isIso(f.kickoff)) &&
+            clubSlugs.has(f.opp) &&
+            typeof f.home === "boolean" &&
+            (f.fdr === null || (Number.isInteger(f.fdr) && f.fdr >= 1 && f.fdr <= 5)),
+        );
+      if (!ok) p.push(`clubs.${slug} malformed`);
+    }
+  const text = JSON.stringify(fpl);
+  if (ADDRESS.test(text)) p.push("fpl.json contains an IP address");
+  return p;
+}
