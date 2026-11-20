@@ -1,6 +1,6 @@
 import { Component, useEffect, useMemo, useState } from "react";
 import { RefreshCw, TriangleAlert } from "lucide-react";
-import { clubByEspnId } from "../config/clubs.js";
+import { clubByEspnId, clubBySlug } from "../config/clubs.js";
 import { sizedCrest } from "../lib/crest.js";
 import { fmtFull, timeAgo } from "../lib/format.js";
 import { isChunkError } from "../lib/lazy.js";
@@ -34,12 +34,43 @@ export function SourceLine({ state }) {
 }
 
 /**
+ * A secondary "where from, how fresh" line, for sections built from more than one source.
+ * @param {{ label: string, at?: Date | null, live?: boolean }} props
+ */
+export function FreshnessLine({ label, at = null, live = false }) {
+  return (
+    <p className="mt-1 text-sm text-muted">
+      {label}
+      {live && " · live"}
+      {at && (
+        <>
+          {" · "}
+          <time dateTime={at.toISOString()} title={fmtFull(at)}>
+            updated {timeAgo(at)}
+          </time>
+        </>
+      )}
+    </p>
+  );
+}
+
+/**
  * One data section: heading, then loading / error / empty / stale states around `children(data)`,
  * then the source line. Every section on every page goes through this.
  * @param {{ title: string, id: string, state: any, empty?: string, children: (data: any) => any,
  *   action?: any, className?: string, headingLevel?: 2 | 3 }} props
  */
-export function Section({ title, id, state, empty = "Nothing to show yet.", children, action, className = "" }) {
+export function Section({
+  title,
+  id,
+  state,
+  empty = "Nothing to show yet.",
+  children,
+  action,
+  note = null,
+  sourceLine = true,
+  className = "",
+}) {
   const hasData = state.data != null;
   return (
     <section aria-labelledby={id} className={`min-w-0 ${className}`}>
@@ -74,7 +105,8 @@ export function Section({ title, id, state, empty = "Nothing to show yet.", chil
       {hasData && state.empty && <p className="rounded-md bg-field px-3 py-6 text-muted">{empty}</p>}
       {hasData && !state.empty && children(state.data)}
       {state.warnings?.length > 0 && <p className="mt-2 text-sm text-muted">{state.warnings.join(". ")}.</p>}
-      {(hasData || state.status === "error") && <SourceLine state={state} />}
+      {sourceLine && (hasData || state.status === "error") && <SourceLine state={state} />}
+      {note}
     </section>
   );
 }
@@ -110,11 +142,35 @@ export function TeamLink({ side, className = "" }) {
   );
 }
 
-const RESULT = {
+export const RESULT = {
   W: { label: "Win", cls: "bg-win text-white" },
   D: { label: "Draw", cls: "bg-draw text-white" },
   L: { label: "Loss", cls: "bg-loss text-white" },
 };
+
+/**
+ * A club's recent results as small W/D/L squares, oldest first, read out as words. Not links (the form comes
+ * from FPL's fixture list, which has no ESPN match ids).
+ * @param {{ entries: { result: "W" | "D" | "L", opponent: string, home: boolean, for: number, against: number }[] }} props
+ */
+export function FormMini({ entries }) {
+  if (!entries?.length) return <span className="text-muted">–</span>;
+  return (
+    <span className="inline-flex gap-0.5 align-middle">
+      <span className="sr-only">{entries.map((e) => RESULT[e.result].label).join(", ")}</span>
+      {entries.map((e, i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          title={`${RESULT[e.result].label} ${e.for}–${e.against} ${e.home ? "v" : "at"} ${clubBySlug(e.opponent)?.shortName ?? e.opponent}`}
+          className={`num inline-flex size-4 items-center justify-center rounded-[2px] text-[10px] leading-none font-bold sm:size-5 sm:text-xs ${RESULT[e.result].cls}`}
+        >
+          {e.result}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 /** W / D / L chip with the full word for screen readers. */
 export function ResultChip({ result, title }) {

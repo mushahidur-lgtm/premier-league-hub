@@ -35,6 +35,7 @@ const summary = Object.fromEntries(
 );
 const news = await get(`${SITE}/news.json`);
 const meta = await get(`${SITE}/meta.json`);
+const league = await get(`${SITE}/league.json`);
 news.items = news.items.slice(0, 120); // keeps the fixture small; enough for every section
 // One made-up injury story about a squad player ESPN lists as fine, so the e2e tests always exercise
 // the "reported injured" note (rule 3) whatever the real news was on the day.
@@ -61,6 +62,7 @@ await Promise.all([
   save("summary.json", summary),
   save("news.json", news),
   save("meta.json", meta),
+  save("league.json", league),
   save("recorded.json", { recordedAt, club: club.slug, espnId: club.espnId, eventId: last.id }),
 ]);
 console.log(JSON.stringify({ recordedAt, club: club.slug, eventId: last.id }));

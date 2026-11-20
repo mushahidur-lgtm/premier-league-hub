@@ -42,6 +42,52 @@ test("home: table, fixtures, stories and club grid", async ({ page }) => {
   await axeClean(page);
 });
 
+test("home dashboard: gameweek selector, filters, form, leaders and key fixtures", async ({ page }) => {
+  await page.goto("./");
+  const fixtures = page.locator("section[aria-labelledby=fixtures-heading]");
+  const gw = fixtures.getByRole("combobox", { name: "Gameweek" });
+  // Opens on FPL's next gameweek (the current one is finished in the recording).
+  await expect(gw.locator("option:checked")).toHaveText("Gameweek 11 (next)");
+  const rows = fixtures.locator("li");
+  await expect(rows).toHaveCount(10);
+  await expect(fixtures.getByRole("button", { name: /^Upcoming/ })).toHaveText("Upcoming 10");
+  // ESPN's scoreboard covers this gameweek, so rows link to the match centre.
+  await expect(rows.first().getByRole("link")).toHaveCount(3);
+
+  // The selector fetches the chosen gameweek: a finished one shows FPL's results, unlinked.
+  await gw.selectOption({ label: "Gameweek 5" });
+  await expect(rows).toHaveCount(10);
+  await expect(fixtures.getByRole("button", { name: /^Completed/ })).toHaveText("Completed 10");
+  await expect(rows.first()).toContainText(/\d–\d/);
+  await expect(fixtures.getByText(/aren’t on ESPN’s scoreboard/)).toBeVisible();
+  await fixtures.getByRole("button", { name: "Next gameweek" }).click();
+  await expect(gw.locator("option:checked")).toHaveText("Gameweek 6");
+  await fixtures.getByRole("button", { name: "Previous gameweek" }).click();
+  await fixtures.getByRole("button", { name: "Previous gameweek" }).click();
+  await expect(gw.locator("option:checked")).toHaveText("Gameweek 4");
+
+  // Filters.
+  await gw.selectOption({ label: "Gameweek 11 (next)" });
+  await fixtures.getByRole("button", { name: /^Completed/ }).click();
+  await expect(fixtures.getByRole("button", { name: /^Completed/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(fixtures.getByText("No completed matches in Gameweek 11.")).toBeVisible();
+  await expect(fixtures.getByText(/Fantasy Premier League, via this site's pipeline · updated/)).toBeVisible();
+
+  // Form column, from FPL's fixture list, with its own source line.
+  const table = page.locator("section[aria-labelledby=table-heading]");
+  await expect(table.getByRole("columnheader", { name: "Form" })).toBeVisible();
+  await expect(table.getByText(/^Form: last five league results/)).toBeVisible();
+
+  const leaders = page.locator("section[aria-labelledby=leaders-heading]");
+  await expect(leaders.getByRole("table", { name: "Goals" }).locator("tbody tr").first()).toBeVisible();
+  await expect(leaders.getByRole("table", { name: "Assists" }).locator("tbody tr").first()).toBeVisible();
+  await expect(page.locator("section[aria-labelledby=key-fixtures-heading]")).toContainText(
+    /meeting: \d+(st|nd|rd|th) v|No top-six or bottom-four meetings/,
+  );
+  await noOverflow(page);
+  await axeClean(page);
+});
+
 test("club page: matches, position, form, news and squad", async ({ page }) => {
   await page.goto(`./#/club/${RECORDED.club}`);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -97,12 +143,15 @@ test("picking a club leads the home page with it, re-themes at once and survives
   const accent = () =>
     page.evaluate(() => getComputedStyle(document.querySelector("#main").parentElement).getPropertyValue("--accent"));
   const before = await accent();
-  await page.getByRole("combobox").selectOption(RECORDED.club);
+  await page.getByRole("combobox", { name: /club/i }).selectOption(RECORDED.club);
   await expect(page.locator("#my-club-heading")).toBeVisible();
   expect(await accent()).not.toBe(before);
+  const lead = page.locator("section[aria-labelledby=my-club-heading]");
+  await expect(lead.getByText("Form, last five league games")).toBeVisible();
+  await expect(lead.getByText(/pts (clear of|behind)|level on points/)).toBeVisible();
   await page.reload();
   await expect(page.locator("#my-club-heading")).toBeVisible();
-  await expect(page.getByRole("combobox")).toHaveValue(RECORDED.club);
+  await expect(page.getByRole("combobox", { name: /club/i })).toHaveValue(RECORDED.club);
 });
 
 test("unknown routes and clubs show a not-found page", async ({ page }) => {

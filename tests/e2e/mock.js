@@ -43,7 +43,7 @@ export async function mockAll(page, { fail } = {}) {
       return route.abort();
     },
   );
-  await page.route(/\/data\/(news|meta)\.json/, (route) =>
-    route.fulfill(json(load(route.request().url().includes("news") ? "news.json" : "meta.json"))),
+  await page.route(/\/data\/(news|meta|league)\.json/, (route) =>
+    route.fulfill(json(load(/(news|meta|league)\.json/.exec(route.request().url())[0]))),
   );
 }

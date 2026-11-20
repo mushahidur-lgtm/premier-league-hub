@@ -4,9 +4,11 @@ import { toHash } from "../lib/route.js";
 import { TIERS } from "../lib/sources.js";
 import { matchPhase } from "../lib/hero.js";
 import { CATEGORY_SHORT } from "../lib/news.js";
-import { Countdown, Crest, ResultChip, TeamLink } from "./ui.jsx";
+import { Countdown, Crest, FormMini, ResultChip, TeamLink } from "./ui.jsx";
 
 const matchHref = (m) => toHash({ name: "match", eventId: m.id });
+/** A stable React key: ESPN's event id, else FPL's fixture id (FPL-only rows have no ESPN id). */
+export const matchKey = (m) => m.id ?? `fpl-${m.fplId}`;
 
 /** The score or kick-off time in the middle of a fixture row. */
 function Middle({ m, now }) {
@@ -20,6 +22,7 @@ function Middle({ m, now }) {
     );
   }
   if (phase === "unconfirmed") return <span className="text-sm text-muted">Result not confirmed</span>;
+  if (!m.date) return <span className="text-sm text-muted">Date to be confirmed</span>;
   return (
     <time dateTime={m.date.toISOString()} className="num text-lg font-semibold">
       {fmtTime(m.date)}
@@ -27,7 +30,19 @@ function Middle({ m, now }) {
   );
 }
 
-/** One fixture or result, linked to its match centre. */
+/** The middle of a row: a link to the match centre when ESPN has the match, otherwise plain. */
+function MiddleCell({ m, children }) {
+  const cls = "flex min-h-11 min-w-20 flex-col items-center justify-center rounded-md px-2";
+  return m.id ? (
+    <a href={matchHref(m)} className={`${cls} hover:bg-field`}>
+      {children}
+    </a>
+  ) : (
+    <span className={cls}>{children}</span>
+  );
+}
+
+/** One fixture or result, linked to its match centre when there is one. */
 export function MatchRow({ m, now = Date.now(), showDate = false }) {
   const phase = matchPhase(m, now);
   return (
@@ -36,12 +51,11 @@ export function MatchRow({ m, now = Date.now(), showDate = false }) {
         <TeamLink side={m.home} className="truncate font-semibold" />
         <Crest src={m.home.logo} />
       </span>
-      <a
-        href={matchHref(m)}
-        className="flex min-h-11 min-w-20 flex-col items-center justify-center rounded-md px-2 hover:bg-field"
-      >
+      <MiddleCell m={m}>
         <span className="sr-only">
-          {m.home.name} v {m.away.name}, {fmtKick(m.date)}, match centre:{" "}
+          {m.home.name} v {m.away.name}
+          {m.date ? `, ${fmtKick(m.date)}` : ", date to be confirmed"}
+          {m.id ? ", match centre: " : ": "}
         </span>
         <Middle m={m} now={now} />
         <span className="text-xs text-muted">
@@ -61,7 +75,7 @@ export function MatchRow({ m, now = Date.now(), showDate = false }) {
             m.compShort
           )}
         </span>
-      </a>
+      </MiddleCell>
       <span className="flex min-w-0 items-center gap-2">
         <Crest src={m.away.logo} />
         <TeamLink side={m.away} className="truncate font-semibold" />
@@ -79,12 +93,12 @@ export function MatchesByDay({ matches, now = Date.now() }) {
   }
   return (
     <div className="space-y-4">
-      {[...days.values()].map((list) => (
-        <div key={list[0].id}>
+      {[...days.entries()].map(([day, list]) => (
+        <div key={day}>
           <h3 className="text-sm font-semibold text-muted">{fmtLongDay(list[0].date)}</h3>
           <ul>
             {list.map((m) => (
-              <MatchRow key={m.id} m={m} now={now} />
+              <MatchRow key={matchKey(m)} m={m} now={now} />
             ))}
           </ul>
         </div>
@@ -101,8 +115,11 @@ function zoneLegend(rows) {
   return [...seen.entries()];
 }
 
-/** The league table. `highlight` is an ESPN id (the viewer's club or the page's club). */
-export function LeagueTable({ rows, highlight = null, compact = false }) {
+/**
+ * The league table. `highlight` is an ESPN id (the viewer's club or the page's club). `form` (club slug →
+ * last results, oldest first) adds a Form column.
+ */
+export function LeagueTable({ rows, highlight = null, compact = false, form = null }) {
   const legend = zoneLegend(rows);
   return (
     <div>
@@ -136,6 +153,11 @@ export function LeagueTable({ rows, highlight = null, compact = false }) {
               <th scope="col" className="num px-1 py-2 text-right font-semibold">
                 <abbr title="Goal difference">GD</abbr>
               </th>
+              {form && (
+                <th scope="col" className="px-1 py-2 text-center font-semibold">
+                  <abbr title="Last five league results, oldest first">Form</abbr>
+                </th>
+              )}
               <th scope="col" className="num py-2 pl-1 text-right font-semibold">
                 <abbr title="Points">Pts</abbr>
               </th>
@@ -189,6 +211,11 @@ export function LeagueTable({ rows, highlight = null, compact = false }) {
                   <td className="num px-1 py-1.5 text-right text-lg">
                     {r.gd == null ? "–" : r.gd > 0 ? `+${r.gd}` : r.gd}
                   </td>
+                  {form && (
+                    <td className="px-1 py-1.5 text-center whitespace-nowrap">
+                      <FormMini entries={club ? form[club.slug] : null} />
+                    </td>
+                  )}
                   <td className="num py-1.5 pl-1 text-right text-lg font-bold">{r.pts ?? "–"}</td>
                 </tr>
               );
