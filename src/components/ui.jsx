@@ -81,11 +81,7 @@ export function Section({
         </h2>
         {action}
       </div>
-      {!hasData && (state.status === "loading" || state.status === "idle") && (
-        <p role="status" className="animate-pulse rounded-md bg-field px-3 py-6 text-muted">
-          Loading…
-        </p>
-      )}
+      {!hasData && (state.status === "loading" || state.status === "idle") && <Skeleton lines={4} />}
       {state.status === "error" && (
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-loss/40 bg-surface p-3">
           <TriangleAlert aria-hidden="true" className="size-5 shrink-0 text-loss" />
@@ -109,6 +105,24 @@ export function Section({
       {((sourceLine && hasData) || state.status === "error") && <SourceLine state={state} />}
       {note}
     </section>
+  );
+}
+
+/**
+ * Placeholder bars in the shape of content while it loads (the pulse stops under reduced motion). Screen
+ * readers hear `label` once, from a status region.
+ * @param {{ label?: string, lines?: number, heading?: boolean }} props
+ */
+export function Skeleton({ label = "Loading…", lines = 3, heading = false }) {
+  const widths = ["w-11/12", "w-9/12", "w-10/12", "w-7/12", "w-8/12", "w-6/12"];
+  return (
+    <div role="status" className="space-y-3 py-1">
+      <span className="sr-only">{label}</span>
+      {heading && <div aria-hidden="true" className="h-9 w-1/2 animate-pulse rounded-md bg-field" />}
+      {Array.from({ length: lines }, (_, i) => (
+        <div key={i} aria-hidden="true" className={`h-4 animate-pulse rounded bg-field ${widths[i % widths.length]}`} />
+      ))}
+    </div>
   );
 }
 

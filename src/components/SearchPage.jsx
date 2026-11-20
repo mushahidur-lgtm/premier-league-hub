@@ -1,10 +1,11 @@
-import { useDeferredValue, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { Search, X } from "lucide-react";
 import { CLUBS, clubBySlug } from "../config/clubs.js";
 import { useSource } from "../lib/data.js";
 import { useAllPlayers } from "./useAllPlayers.js";
 import { toHash } from "../lib/route.js";
 import { search } from "../lib/search.js";
+import { clearSearchFocus, searchFocusPending } from "../lib/intent.js";
 import { StoryList } from "./blocks.jsx";
 import { Crest, SourceLine, useStories } from "./ui.jsx";
 
@@ -18,6 +19,25 @@ export default function SearchPage({ query }) {
   const results = useMemo(() => search(deferred, { clubs: CLUBS, players, stories }), [deferred, players, stories]);
   const searched = results.words.length > 0;
   const total = results.clubs.length + results.players.length + results.stories.length;
+
+  // Screen readers hear the count once typing pauses, not on every keystroke.
+  const summary = searched
+    ? total
+      ? `${total} result${total === 1 ? "" : "s"} for “${deferred.trim()}”`
+      : `No results for “${deferred.trim()}”. Try a surname or a club name.`
+    : "Type at least two letters.";
+  const [announced, setAnnounced] = useState(summary);
+  useEffect(() => {
+    const t = setTimeout(() => setAnnounced(summary), 700);
+    return () => clearTimeout(t);
+  }, [summary]);
+  const box = useRef(null);
+  useEffect(() => {
+    if (searchFocusPending()) {
+      box.current?.focus();
+      clearSearchFocus();
+    }
+  }, []);
 
   const update = (value) => {
     setQ(value);
@@ -43,7 +63,22 @@ export default function SearchPage({ query }) {
             spellCheck="false"
             className="min-h-11 w-full bg-transparent text-lg outline-none"
             placeholder="Surname, club or topic…"
+            ref={box}
+            aria-keyshortcuts="/"
           />
+          {q && (
+            <button
+              type="button"
+              onClick={() => {
+                update("");
+                box.current?.focus();
+              }}
+              className="-mr-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted hover:bg-field hover:text-ink"
+            >
+              <X aria-hidden="true" className="size-5" />
+              <span className="sr-only">Clear search</span>
+            </button>
+          )}
         </div>
         <p className="mt-1 text-sm text-muted">
           {loaded < CLUBS.length
@@ -53,12 +88,11 @@ export default function SearchPage({ query }) {
         </p>
       </form>
 
-      <p role="status" className="font-semibold">
-        {searched
-          ? total
-            ? `${total} result${total === 1 ? "" : "s"} for “${deferred.trim()}”`
-            : `No results for “${deferred.trim()}”. Try a surname or a club name.`
-          : "Type at least two letters."}
+      <p aria-hidden="true" className="font-semibold">
+        {summary}
+      </p>
+      <p role="status" className="sr-only">
+        {announced}
       </p>
 
       {results.clubs.length > 0 && (

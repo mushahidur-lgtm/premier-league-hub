@@ -9,8 +9,9 @@ import { pageKey, parseHash, toHash } from "./lib/route.js";
 import { useMyClub } from "./lib/storage.js";
 import { useTheme } from "./lib/theme.js";
 import { useNewVersion } from "./lib/version.js";
+import { clearSearchFocus, requestSearchFocus, searchFocusPending } from "./lib/intent.js";
 import { titleFor } from "./lib/titles.js";
-import { ErrorBoundary } from "./components/ui.jsx";
+import { ErrorBoundary, Skeleton } from "./components/ui.jsx";
 import Home from "./components/Home.jsx";
 
 const ClubPage = lazyRetry(() => import("./components/ClubPage.jsx"));
@@ -73,7 +74,38 @@ function ThemeButton() {
   );
 }
 
-function Header() {
+/** A main-nav link; the current section is marked for screen readers and with an underline. */
+const navProps = (current) => ({
+  "aria-current": current ? "page" : undefined,
+  className: `inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md border-b-3 px-2 font-semibold hover:bg-field ${
+    current ? "border-accent" : "border-transparent"
+  }`,
+});
+
+/**
+ * "/" from anywhere opens search with the cursor in the box (as on many sites). Ignored while typing in a
+ * field or with a modifier held, so it never takes a character away from the reader.
+ */
+function useSearchShortcut() {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      const t = e.target;
+      if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      e.preventDefault();
+      const box = document.getElementById("q");
+      if (box) box.focus();
+      else {
+        requestSearchFocus();
+        window.location.hash = toHash({ name: "search", query: "" });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+}
+
+function Header({ route }) {
   const [spinning, setSpinning] = useState(false);
   return (
     <header className="border-b border-line bg-surface">
@@ -85,22 +117,17 @@ function Header() {
         <nav aria-label="Main" className="flex items-center gap-2">
           <a
             href={toHash({ name: "search", query: "" })}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md px-2 font-semibold hover:bg-field"
+            title="Search (press /)"
+            {...navProps(route.name === "search")}
           >
             <Search aria-hidden="true" className="size-5" />
             <span className="sr-only sm:not-sr-only">Search</span>
           </a>
-          <a
-            href="#/stats"
-            className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md px-2 font-semibold hover:bg-field"
-          >
+          <a href="#/stats" {...navProps(route.name === "stats")}>
             <ChartColumn aria-hidden="true" className="size-5" />
             <span className="sr-only sm:not-sr-only">Statistics</span>
           </a>
-          <a
-            href="#/fpl"
-            className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md px-2 font-semibold hover:bg-field"
-          >
+          <a href="#/fpl" {...navProps(route.name === "fpl")}>
             <Shirt aria-hidden="true" className="size-5" />
             <span className="sr-only sm:not-sr-only">
               <abbr title="Fantasy Premier League" className="no-underline">
@@ -197,6 +224,7 @@ export default function App() {
   const { slug } = useMyClub();
   const myClub = slug ? clubBySlug(slug) : null;
   useAutoRefresh();
+  useSearchShortcut();
 
   // A club page takes that club's colours; everywhere else uses the viewer's club (or the site default).
   const pageClub = route.name === "club" ? clubBySlug(route.slug) : null;
@@ -219,8 +247,17 @@ export default function App() {
       first.current = false;
       return;
     }
-    main.current?.focus();
     window.scrollTo(0, 0);
+    // The "/" shortcut asked for the search box: focus it if it's there, else the search page will on mount.
+    if (searchFocusPending()) {
+      const box = document.getElementById("q");
+      if (box) {
+        box.focus();
+        clearSearchFocus();
+      }
+      return;
+    }
+    main.current?.focus();
   }, [page]);
 
   return (
@@ -235,17 +272,11 @@ export default function App() {
       >
         Skip to content
       </a>
-      <Header />
+      <Header route={route} />
       <NewVersion />
       <main id="main" ref={main} tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 outline-none">
         <ErrorBoundary resetKey={routeKey}>
-          <Suspense
-            fallback={
-              <p role="status" className="text-muted">
-                Loading page…
-              </p>
-            }
-          >
+          <Suspense fallback={<Skeleton label="Loading page…" heading lines={6} />}>
             <Page route={route} myClub={myClub} />
           </Suspense>
         </ErrorBoundary>

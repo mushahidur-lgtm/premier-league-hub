@@ -379,8 +379,28 @@ test("search finds players and keeps the query in the address", async ({ page })
   await expect(page).toHaveURL(new RegExp(`#/search\\?q=${encodeURIComponent(surname)}`));
   await page.reload();
   await expect(box).toHaveValue(surname);
+  // The count is announced once typing settles; the clear button empties the box and keeps focus there.
+  await expect(page.getByRole("status").filter({ hasText: /results? for/ })).toBeAttached();
+  await page.getByRole("button", { name: "Clear search" }).click();
+  await expect(box).toHaveValue("");
+  await expect(box).toBeFocused();
+  await expect(page.getByRole("link", { name: /^Search/ })).toHaveAttribute("aria-current", "page");
   await noOverflow(page);
   await axeClean(page);
+});
+
+test("keyboard: / opens search from anywhere, but never while typing in a field", async ({ page }) => {
+  await page.goto(`./#/stats`);
+  await expect(page.getByRole("link", { name: "Statistics" })).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("/");
+  await expect(page).toHaveURL(/#\/search$/);
+  const box = page.getByRole("searchbox", { name: "Clubs, players and stories" });
+  await expect(box).toBeFocused();
+  await box.fill("a/b");
+  await expect(box).toHaveValue("a/b");
+  await page.goto("./#/fpl?view=compare");
+  await page.getByLabel("Player 1", { exact: true }).fill("x/");
+  await expect(page).toHaveURL(/#\/fpl/);
 });
 
 test("picking a club leads the home page with it, re-themes at once and survives a reload", async ({ page }) => {
