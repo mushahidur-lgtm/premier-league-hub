@@ -123,3 +123,72 @@ export function runHealth(c, { minFeedShare = 0.5, minItems = 100 } = {}) {
   if (c.rostersOk < c.rosters) problems.push(`${c.rosters - c.rostersOk} of ${c.rosters} squads failed`);
   return { status: failed ? "failed" : problems.length ? "degraded" : "ok", problems };
 }
+
+const RESULTS = new Set(["W", "D", "L"]);
+const PART_NAMES = new Set(["gameweeks", "form", "leaders"]);
+
+/**
+ * Problems with a league.json object; [] when it is fine. Each part may be null only if it is listed in
+ * `missing`.
+ * @param {any} league
+ * @param {{ clubSlugs: Set<string> }} ctx
+ * @returns {string[]}
+ */
+export function validateLeague(league, { clubSlugs }) {
+  const p = [];
+  if (!isObj(league)) return ["league.json is not an object"];
+  if (!isIso(league.generatedAt)) p.push("generatedAt is not a date");
+  if (!Array.isArray(league.missing) || league.missing.some((/** @type {any} */ m) => !PART_NAMES.has(m)))
+    p.push("missing is not a list of parts");
+  if (!Array.isArray(league.carriedOver)) p.push("carriedOver is not a list");
+  if (!isObj(league.asOf)) p.push("asOf missing");
+  const missing = new Set(Array.isArray(league.missing) ? league.missing : []);
+  const club = (/** @type {any} */ s) => clubSlugs.has(s);
+  const need = (/** @type {string} */ part, /** @type {boolean} */ ok, /** @type {string} */ what) => {
+    if (missing.has(part)) return;
+    if (!ok) p.push(what);
+    else if (!isIso(league.asOf?.[part])) p.push(`asOf.${part} is not a date`);
+  };
+
+  const gwOk =
+    Array.isArray(league.gameweeks) &&
+    league.gameweeks.every(
+      (/** @type {any} */ g) => isObj(g) && Number.isInteger(g.id) && typeof g.name === "string",
+    ) &&
+    Array.isArray(league.fixtures) &&
+    league.fixtures.every(
+      (/** @type {any} */ f) =>
+        isObj(f) &&
+        Number.isInteger(f.id) &&
+        (f.gameweek === null || Number.isInteger(f.gameweek)) &&
+        (f.kickoff === null || isIso(f.kickoff)) &&
+        club(f.home) &&
+        club(f.away) &&
+        (f.homeScore === null || Number.isInteger(f.homeScore)) &&
+        (f.awayScore === null || Number.isInteger(f.awayScore)),
+    );
+  need("gameweeks", gwOk, "gameweeks or fixtures malformed");
+
+  const formOk =
+    isObj(league.form) &&
+    Object.entries(league.form).every(
+      ([slug, list]) =>
+        club(slug) &&
+        Array.isArray(list) &&
+        list.every((/** @type {any} */ e) => isObj(e) && RESULTS.has(e.result) && club(e.opponent)),
+    );
+  need("form", formOk, "form malformed");
+
+  const leaderList = (/** @type {any} */ l) =>
+    Array.isArray(l) &&
+    l.every(
+      (/** @type {any} */ x) =>
+        isObj(x) && /^\d+$/.test(String(x.id)) && typeof x.name === "string" && typeof x.value === "number",
+    );
+  need(
+    "leaders",
+    isObj(league.leaders) && leaderList(league.leaders.goals) && leaderList(league.leaders.assists),
+    "leaders malformed",
+  );
+  return p;
+}

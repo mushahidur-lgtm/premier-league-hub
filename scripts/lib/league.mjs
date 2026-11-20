@@ -1,0 +1,236 @@
+// @ts-check
+/**
+ * league.json: gameweeks and fixtures from the official Fantasy Premier League (FPL) data, league-wide form
+ * derived from FPL's finished fixtures, and goals/assists leaders from ESPN. Pure; fetch-data.mjs does the IO.
+ *
+ * FPL is the only source of gameweek numbers (ESPN's scoreboard has none). FPL's gameweek is the fantasy
+ * round: a postponed match moves to the round it is replayed in, and has no round (`gameweek: null`) until it
+ * is rescheduled. Nothing here infers a number FPL doesn't give.
+ */
+
+/** @typedef {{ slug: string, espnId: string, abbr: string }} LeagueClub */
+/**
+ * @typedef {{
+ *   id: number, gameweek: number | null, kickoff: string | null, home: string, away: string,
+ *   homeScore: number | null, awayScore: number | null, started: boolean, finished: boolean
+ * }} LeagueFixture
+ * @typedef {{ id: number, name: string, deadline: string | null, finished: boolean, current: boolean, next: boolean }} Gameweek
+ * @typedef {{ fixture: number, result: "W" | "D" | "L", opponent: string, home: boolean, for: number, against: number, kickoff: string | null }} FormEntry
+ * @typedef {{ id: string, name: string, club: string | null, value: number, matches: number | null }} Leader
+ */
+
+const isObj = (/** @type {unknown} */ v) => v !== null && typeof v === "object" && !Array.isArray(v);
+const int = (/** @type {unknown} */ v) => (Number.isInteger(v) ? /** @type {number} */ (v) : null);
+const iso = (/** @type {unknown} */ v) => (typeof v === "string" && !Number.isNaN(Date.parse(v)) ? v : null);
+
+/**
+ * FPL team id → club slug, matched on FPL's short name = our `abbr`. Returns the map and any FPL team that
+ * matched no club (which makes the gameweek data unusable: a fixture without both clubs is never shown).
+ * @param {any} bootstrap FPL bootstrap-static
+ * @param {LeagueClub[]} clubs
+ */
+export function mapTeams(bootstrap, clubs) {
+  const byAbbr = new Map(clubs.map((c) => [c.abbr, c.slug]));
+  /** @type {Map<number, string>} */
+  const map = new Map();
+  const unmatched = [];
+  for (const t of Array.isArray(bootstrap?.teams) ? bootstrap.teams : []) {
+    const slug = byAbbr.get(t?.short_name);
+    if (slug && int(t.id) != null) map.set(t.id, slug);
+    else unmatched.push(String(t?.short_name ?? t?.name ?? "?"));
+  }
+  return { map, unmatched };
+}
+
+/** @param {any} bootstrap @returns {Gameweek[]} */
+export function readGameweeks(bootstrap) {
+  const events = Array.isArray(bootstrap?.events) ? bootstrap.events : [];
+  return events
+    .filter((e) => isObj(e) && int(e.id) != null)
+    .map((e) => ({
+      id: e.id,
+      name: typeof e.name === "string" ? e.name : `Gameweek ${e.id}`,
+      deadline: iso(e.deadline_time),
+      finished: e.finished === true,
+      current: e.is_current === true,
+      next: e.is_next === true,
+    }))
+    .sort((a, b) => a.id - b.id);
+}
+
+/**
+ * @param {any} fixtures FPL fixtures/ (all of them)
+ * @param {Map<number, string>} teams
+ * @returns {{ fixtures: LeagueFixture[], skipped: number }}
+ */
+export function readFixtures(fixtures, teams) {
+  let skipped = 0;
+  /** @type {LeagueFixture[]} */
+  const out = [];
+  for (const f of Array.isArray(fixtures) ? fixtures : []) {
+    const home = teams.get(f?.team_h);
+    const away = teams.get(f?.team_a);
+    if (!isObj(f) || int(f.id) == null || !home || !away) {
+      skipped++;
+      continue;
+    }
+    // A score counts once FPL marks the match over (provisionally at the final whistle, then confirmed).
+    const over = f.finished === true || f.finished_provisional === true;
+    const hs = int(f.team_h_score);
+    const as = int(f.team_a_score);
+    out.push({
+      id: f.id,
+      gameweek: int(f.event),
+      kickoff: iso(f.kickoff_time),
+      home,
+      away,
+      homeScore: f.started === true ? hs : null,
+      awayScore: f.started === true ? as : null,
+      started: f.started === true,
+      finished: over && hs != null && as != null,
+    });
+  }
+  out.sort((a, b) => (a.kickoff ?? "9").localeCompare(b.kickoff ?? "9") || a.id - b.id);
+  return { fixtures: out, skipped };
+}
+
+/**
+ * Each club's last `n` finished league matches, oldest first.
+ * @param {LeagueFixture[]} fixtures
+ * @param {string[]} slugs
+ * @returns {Record<string, FormEntry[]>}
+ */
+export function leagueForm(fixtures, slugs, n = 5) {
+  /** @type {Record<string, FormEntry[]>} */
+  const form = Object.fromEntries(slugs.map((s) => [s, []]));
+  const done = fixtures
+    .filter((f) => f.finished && f.kickoff)
+    .sort((a, b) => (a.kickoff ?? "").localeCompare(b.kickoff ?? ""));
+  for (const f of done) {
+    const hs = /** @type {number} */ (f.homeScore);
+    const as = /** @type {number} */ (f.awayScore);
+    for (const [club, opp, home, gf, ga] of /** @type {const} */ ([
+      [f.home, f.away, true, hs, as],
+      [f.away, f.home, false, as, hs],
+    ])) {
+      form[club]?.push({
+        fixture: f.id,
+        result: gf > ga ? "W" : gf < ga ? "L" : "D",
+        opponent: opp,
+        home,
+        for: gf,
+        against: ga,
+        kickoff: f.kickoff,
+      });
+    }
+  }
+  for (const s of slugs) form[s] = form[s].slice(-n);
+  return form;
+}
+
+/**
+ * Goals and assists leaders from ESPN's eng.1 statistics: the top `n` each, plus anyone tied with the n-th.
+ * @param {any} stats
+ * @param {Map<string, string>} clubByEspnId
+ * @returns {{ goals: Leader[], assists: Leader[] }}
+ */
+export function readLeaders(stats, clubByEspnId, n = 10) {
+  const list = Array.isArray(stats?.stats) ? stats.stats : [];
+  /** @param {string} name */
+  const pick = (name) => {
+    const cat = list.find((s) => s?.name === name);
+    /** @type {Leader[]} */
+    const out = [];
+    for (const l of Array.isArray(cat?.leaders) ? cat.leaders : []) {
+      const a = l?.athlete;
+      const value = typeof l?.value === "number" && Number.isFinite(l.value) ? l.value : null;
+      if (!a || typeof a.id !== "string" || typeof a.displayName !== "string" || value == null) continue;
+      const m = /Matches:\s*(\d+)/.exec(String(l.displayValue ?? ""));
+      out.push({
+        id: a.id,
+        name: a.displayName,
+        club: clubByEspnId.get(String(a.team?.id)) ?? null,
+        value,
+        matches: m ? Number(m[1]) : null,
+      });
+      // Keep everyone tied with the n-th player, so a cut never splits a tie (capped at 2n).
+      if (out.length >= n && value !== out[n - 1]?.value) {
+        out.pop();
+        break;
+      }
+      if (out.length >= 2 * n) break;
+    }
+    return out;
+  };
+  return { goals: pick("goalsLeaders"), assists: pick("assistsLeaders") };
+}
+
+/**
+ * The whole league.json. `fpl` or `stats` may be null (that source failed): its part is then omitted and
+ * listed in `missing`, never filled with guesses.
+ * @param {{ bootstrap: any, fixtures: any } | null} fpl
+ * @param {any} stats
+ * @param {LeagueClub[]} clubs
+ * @param {Date} now
+ */
+export function buildLeague(fpl, stats, clubs, now) {
+  const problems = [];
+  const missing = [];
+  /** @type {any} */
+  const out = {
+    generatedAt: now.toISOString(),
+    season: null,
+    gameweeks: null,
+    fixtures: null,
+    form: null,
+    leaders: null,
+  };
+  if (fpl) {
+    const { map, unmatched } = mapTeams(fpl.bootstrap, clubs);
+    if (unmatched.length || map.size !== clubs.length) {
+      problems.push(`FPL teams not matched to clubs: ${unmatched.join(", ") || `${map.size} of ${clubs.length}`}`);
+      missing.push("gameweeks", "form");
+    } else {
+      const { fixtures, skipped } = readFixtures(fpl.fixtures, map);
+      if (skipped) problems.push(`${skipped} FPL fixtures skipped as malformed`);
+      out.gameweeks = readGameweeks(fpl.bootstrap);
+      out.fixtures = fixtures;
+      out.form = leagueForm(
+        fixtures,
+        clubs.map((c) => c.slug),
+      );
+    }
+  } else missing.push("gameweeks", "form");
+  if (stats) {
+    out.season = typeof stats?.season?.displayName === "string" ? stats.season.displayName : null;
+    out.leaders = readLeaders(stats, new Map(clubs.map((c) => [c.espnId, c.slug])));
+  } else missing.push("leaders");
+  const asOf = Object.fromEntries(PARTS.map((p) => [p, missing.includes(p) ? null : out.generatedAt]));
+  return { league: { ...out, asOf, missing, carriedOver: [] }, problems };
+}
+
+/** The parts of league.json, the fields each one owns, and so what can be carried over on its own. */
+const PARTS = /** @type {const} */ (["gameweeks", "form", "leaders"]);
+/** @type {Record<string, string[]>} */
+const FIELDS = { gameweeks: ["gameweeks", "fixtures"], form: ["form"], leaders: ["leaders", "season"] };
+
+/**
+ * Fills parts this run couldn't fetch from the previously deployed league.json, keeping that copy's own date
+ * in `asOf`, so the site shows older but real data (labelled with its age) instead of nothing.
+ * @param {any} league  this run's league.json
+ * @param {any} previous the live league.json, or null
+ */
+export function carryOver(league, previous) {
+  if (!isObj(previous)) return league;
+  const next = { ...league, asOf: { ...league.asOf }, missing: [], carriedOver: [...(league.carriedOver ?? [])] };
+  for (const part of league.missing) {
+    const fields = FIELDS[part] ?? [];
+    const when = iso(previous.asOf?.[part]) ?? iso(previous.generatedAt);
+    if (when && fields.every((f) => previous[f] != null) && !(previous.missing ?? []).includes(part)) {
+      for (const f of fields) next[f] = previous[f];
+      next.asOf[part] = when;
+      next.carriedOver.push(part);
+    } else next.missing.push(part);
+  }
+  return next;
+}

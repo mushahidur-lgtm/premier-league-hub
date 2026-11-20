@@ -9,3 +9,6 @@
 export const BASE = "/premier-league-hub/";
 
 export const SITE_NAME = "Premier League Hub";
+
+/** Where the site is live (the pipeline reads the deployed league.json from here as a fallback). Follows BASE. */
+export const SITE_URL = `https://mushahidur.gitlab.io${BASE}`;

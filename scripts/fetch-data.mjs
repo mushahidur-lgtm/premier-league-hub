@@ -16,12 +16,18 @@ import { CLUBS, LEAGUE_FEEDS, OUTLETS } from "../src/config/clubs.js";
 import { parseFeed } from "./lib/feed-parser.mjs";
 import { buildNews } from "./lib/news.mjs";
 import { rosterPlayers } from "./lib/players.mjs";
-import { describeError, runHealth, validateMeta, validateNews } from "./lib/validate-data.mjs";
+import { describeError, runHealth, validateLeague, validateMeta, validateNews } from "./lib/validate-data.mjs";
+import { buildLeague, carryOver } from "./lib/league.mjs";
+import { SITE_URL } from "../src/config/site.js";
 
 const OUT_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "data");
 const TIMEOUT_MS = 15_000;
 const CONCURRENCY = 6;
 const USER_AGENT = "premier-league-hub/1.0 (unofficial fan site; news pipeline)";
+// League data (league.json): official FPL gameweeks and fixtures (no CORS, so pipeline only) and ESPN leaders.
+const FPL_BOOTSTRAP = "https://fantasy.premierleague.com/api/bootstrap-static/";
+const FPL_FIXTURES = "https://fantasy.premierleague.com/api/fixtures/";
+const ESPN_STATS = "https://site.web.api.espn.com/apis/site/v2/sports/soccer/eng.1/statistics";
 const FEED_ACCEPT = "application/rss+xml, application/atom+xml, application/xml;q=0.9";
 // Squads for player tagging: the roster endpoint, never bare /teams/:id (rule 1).
 const rosterUrl = (/** @type {string} */ espnId) =>
@@ -92,6 +98,7 @@ async function main() {
   if (okCount === 0) return fail(["every feed failed"], results);
 
   const now = new Date();
+  const league = await leagueData(now);
   const items = buildNews(
     results.map((r) => ({ items: r.items, club: r.feed.club })),
     CLUBS,
@@ -128,6 +135,14 @@ async function main() {
       itemsWithPlayers: items.filter((i) => i.players.length).length,
     },
     rosters: rosters.map((r) => ({ club: r.club, ok: r.ok, players: r.players.length, error: r.error })),
+    league: league.file
+      ? {
+          missing: league.file.missing,
+          carriedOver: league.file.carriedOver,
+          asOf: league.file.asOf,
+          problems: league.problems,
+        }
+      : { missing: ["gameweeks", "form", "leaders"], carriedOver: [], asOf: null, problems: league.problems },
     feeds: results.map((r) => ({
       club: r.feed.club,
       outlet: r.feed.outlet,
@@ -146,6 +161,11 @@ async function main() {
   await mkdir(OUT_DIR, { recursive: true });
   await writeFile(join(OUT_DIR, "news.json"), JSON.stringify(news));
   await writeFile(join(OUT_DIR, "meta.json"), JSON.stringify(meta, null, 2));
+  if (league.file) await writeFile(join(OUT_DIR, "league.json"), JSON.stringify(league.file));
+  console.log(
+    `league.json: ${league.file ? `missing [${league.file.missing}], carried over [${league.file.carriedOver}]` : "not written"}` +
+      `${league.problems.length ? `; ${league.problems.join("; ")}` : ""}`,
+  );
 
   console.log(
     `status: ${health.status}${health.problems.length ? ` (${health.problems.join("; ")})` : ""}; output valid`,
@@ -158,6 +178,54 @@ async function main() {
   for (const r of rosters.filter((x) => !x.ok)) console.log(`  roster failed: ${r.club} (${r.error})`);
   for (const r of results.filter((x) => !x.ok))
     console.log(`  failed: ${r.feed.outlet} ${r.feed.club ?? "league"} (${r.error})`);
+}
+
+/** @param {string} url */
+async function fetchJson(url) {
+  const { text } = await fetchText(url, "application/json");
+  return JSON.parse(text);
+}
+
+/**
+ * league.json from FPL (gameweeks, fixtures, form) and ESPN (leaders). A source that fails, or output that
+ * fails validation, never stops the news deploy: its part is carried over from the live league.json with
+ * that copy's date, or left out and listed in `missing`.
+ * @param {Date} now
+ * @returns {Promise<{ file: any, problems: string[] }>}
+ */
+async function leagueData(now) {
+  /** @type {string[]} */
+  const problems = [];
+  /** @param {string} label @param {string} url */
+  const tryJson = async (label, url) => {
+    try {
+      return await fetchJson(url);
+    } catch (err) {
+      problems.push(`${label}: ${describeError(err, TIMEOUT_MS)}`);
+      return null;
+    }
+  };
+  const [bootstrap, fixtures, stats] = await Promise.all([
+    tryJson("FPL bootstrap-static", FPL_BOOTSTRAP),
+    tryJson("FPL fixtures", FPL_FIXTURES),
+    tryJson("ESPN statistics", ESPN_STATS),
+  ]);
+  const built = buildLeague(bootstrap && fixtures ? { bootstrap, fixtures } : null, stats, CLUBS, now);
+  problems.push(...built.problems);
+  let file = built.league;
+  const slugs = new Set(CLUBS.map((c) => c.slug));
+  const invalid = validateLeague(file, { clubSlugs: slugs });
+  if (invalid.length) {
+    problems.push(`league.json failed validation: ${invalid.slice(0, 5).join("; ")}`);
+    file = { ...file, gameweeks: null, fixtures: null, form: null, leaders: null, season: null };
+    file.missing = ["gameweeks", "form", "leaders"];
+  }
+  if (file.missing.length) {
+    const previous = await tryJson("previous league.json", `${SITE_URL}data/league.json`);
+    if (previous && !validateLeague(previous, { clubSlugs: slugs }).length) file = carryOver(file, previous);
+  }
+  if (validateLeague(file, { clubSlugs: slugs }).length) return { file: null, problems };
+  return { file, problems };
 }
 
 /**
