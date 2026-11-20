@@ -24,7 +24,9 @@ import { expectObject } from "./validate.js";
  * @typedef {{
  *   generatedAt: Date | null, season: string | null, gameweeks: Gameweek[] | null, fixtures: LeagueFixture[] | null,
  *   form: Record<string, FormEntry[]> | null, leaders: { goals: Leader[], assists: Leader[] } | null,
- *   gameweeksAt: Date | null, formAt: Date | null, leadersAt: Date | null, missing: string[], carriedOver: string[]
+ *   minutes: Record<string, { fpl: number, minutes: number, starts: number | null }> | null,
+ *   gameweeksAt: Date | null, formAt: Date | null, leadersAt: Date | null, minutesAt: Date | null,
+ *   missing: string[], carriedOver: string[]
  * }} League
  */
 
@@ -106,14 +108,26 @@ export function parseLeague(json) {
     fixtures: missing.includes("gameweeks") ? null : fixtures,
     form: missing.includes("form") ? null : form,
     leaders: missing.includes("leaders") ? null : leaders,
+    minutes: missing.includes("minutes") || !isObj(f.minutes) ? null : readMinutes(f.minutes),
     gameweeksAt: toDate(asOf.gameweeks),
     formAt: toDate(asOf.form),
     leadersAt: toDate(asOf.leaders),
+    minutesAt: toDate(asOf.minutes),
     missing,
     carriedOver: Array.isArray(f.carriedOver)
       ? f.carriedOver.filter((/** @type {any} */ m) => typeof m === "string")
       : [],
   };
+}
+
+/** FPL minutes per ESPN player id; malformed entries dropped. @param {any} m */
+function readMinutes(m) {
+  /** @type {Record<string, { fpl: number, minutes: number, starts: number | null }>} */
+  const out = {};
+  for (const [id, e] of Object.entries(m))
+    if (isObj(e) && int(e.fpl) != null && int(e.minutes) != null && /** @type {number} */ (e.minutes) >= 0)
+      out[id] = { fpl: e.fpl, minutes: e.minutes, starts: int(e.starts) };
+  return out;
 }
 
 /**

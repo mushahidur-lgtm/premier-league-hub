@@ -2,6 +2,7 @@
 
 /**
  * @typedef {{ name: "home" } | { name: "club", slug: string } | { name: "match", eventId: string }
+ *   | { name: "player", playerId: string } | { name: "compare", a: string | null, b: string | null }
  *   | { name: "search", query: string } | { name: "not-found", path: string }} Route
  */
 
@@ -23,6 +24,14 @@ export function parseHash(hash) {
   if (parts[0] === "match" && parts.length === 2 && /^\d+$/.test(parts[1])) {
     return { name: "match", eventId: parts[1] };
   }
+  if (parts[0] === "player" && parts.length === 2 && /^\d+$/.test(parts[1])) {
+    return { name: "player", playerId: parts[1] };
+  }
+  if (parts[0] === "compare" && parts.length === 1) {
+    const q = new URLSearchParams(queryPart);
+    const id = (/** @type {string | null} */ v) => (v && /^\d+$/.test(v) ? v : null);
+    return { name: "compare", a: id(q.get("a")), b: id(q.get("b")) };
+  }
   if (parts[0] === "search" && parts.length === 1) {
     return { name: "search", query: new URLSearchParams(queryPart).get("q") ?? "" };
   }
@@ -42,6 +51,14 @@ export function toHash(route) {
       return `#/club/${encodeURIComponent(route.slug)}`;
     case "match":
       return `#/match/${encodeURIComponent(route.eventId)}`;
+    case "player":
+      return `#/player/${encodeURIComponent(route.playerId)}`;
+    case "compare": {
+      const q = new URLSearchParams();
+      if (route.a) q.set("a", route.a);
+      if (route.b) q.set("b", route.b);
+      return q.size ? `#/compare?${q}` : "#/compare";
+    }
     case "search":
       return route.query ? `#/search?q=${encodeURIComponent(route.query)}` : "#/search";
     default:

@@ -22,6 +22,7 @@ import { clearMemo, fetchJSON, getNetDiagnostics } from "./net.js";
 import { parseRoster, parseSchedules, parseStandings, parseSummary } from "./parsers.js";
 import { parseNewsFile } from "./news.js";
 import { parseLeague } from "./league.js";
+import { parseAthlete, parseGamelog } from "./player.js";
 import { persistentStats } from "./diagnostics.js";
 import { isObj } from "./validate.js";
 import { OUTLETS } from "./sources.js";
@@ -30,6 +31,7 @@ import { bumpRefreshEpoch, useRefreshEpoch } from "./refresh.js";
 export { FetchError, clearMemo, fetchJSON };
 
 const ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer";
+const ESPN_ATHLETES = "https://site.web.api.espn.com/apis/common/v3/sports/soccer/eng.1/athletes";
 
 export const URLS = {
   /** `soccer/all` includes cup and European games; eng.1 is the fallback. */
@@ -42,6 +44,10 @@ export const URLS = {
    * ("YYYYMMDD-YYYYMMDD") returned HTTP 400 when checked on 2026-11-19, so don't rely on them.
    */
   scoreboard: (/** @type {string | undefined} */ dates) => `${ESPN}/eng.1/scoreboard${dates ? `?dates=${dates}` : ""}`,
+  /** A player's bio (CORS OK; this host, not the plain site API). */
+  athlete: (/** @type {string} */ id) => `${ESPN_ATHLETES}/${id}`,
+  /** A player's league matches this season, with per-match stats. */
+  gamelog: (/** @type {string} */ id) => `${ESPN_ATHLETES}/${id}/gamelog`,
   summary: (/** @type {string} */ eventId, league = "all") => `${ESPN}/${league || "all"}/summary?event=${eventId}`,
 };
 
@@ -56,6 +62,8 @@ export const SOURCES = {
   scoreboard: { name: "ESPN", detail: "Premier League scoreboard" },
   summary: { name: "ESPN", detail: "match summary" },
   scoreboards: { name: "ESPN", detail: "live scores for this gameweek" },
+  athlete: { name: "ESPN", detail: "player profile" },
+  gamelog: { name: "ESPN", detail: "player's match log" },
   league: {
     name: "Fantasy Premier League and ESPN",
     detail: "gameweeks, form and leaders, collected by this site's data pipeline",
@@ -132,6 +140,10 @@ export const LOADERS = {
   scoreboards: async (days) => ({
     data: parseSchedules(await Promise.all(days.map((d) => fetchJSON(URLS.scoreboard(d)))), null),
   }),
+  /** @param {string} id @returns {Promise<LoadResult>} */
+  athlete: async (id) => ({ data: parseAthlete(await fetchJSON(URLS.athlete(id))) }),
+  /** @param {string} id @returns {Promise<LoadResult>} */
+  gamelog: async (id) => ({ data: parseGamelog(await fetchJSON(URLS.gamelog(id))) }),
   /** Gameweeks, fixtures, form and leaders from the data pipeline. @returns {Promise<LoadResult>} */
   league: async () => {
     const data = parseLeague(await fetchJSON(dataUrl("league.json")));
@@ -173,6 +185,8 @@ export const LOADERS = {
  * @param {string} key
  * @returns {(() => Promise<LoadResult>) | null}
  */
+const DIGITS = /^[0-9]+$/;
+
 export function loaderFor(key) {
   const [kind, id, extra] = key.split(":");
   switch (kind) {
@@ -189,6 +203,9 @@ export function loaderFor(key) {
     case "schedule":
     case "roster":
       return id ? () => LOADERS[kind](id) : null;
+    case "athlete":
+    case "gamelog":
+      return id && DIGITS.test(id) ? () => LOADERS[kind](id) : null;
     case "summary":
       return id ? () => LOADERS.summary(id, extra) : null;
     default:
@@ -230,9 +247,19 @@ export const cacheConfig = {
     scoreboards: 1 * DAY,
     schedule: 3 * DAY,
     roster: 7 * DAY, // squads change slowly
+    athlete: 7 * DAY,
+    gamelog: 3 * DAY,
     summary: 14 * DAY, // a finished match's summary doesn't change
   },
-  freshMs: { default: 0, standings: 5 * MIN, news: 15 * MIN, league: 15 * MIN, roster: 30 * MIN },
+  freshMs: {
+    default: 0,
+    standings: 5 * MIN,
+    news: 15 * MIN,
+    league: 15 * MIN,
+    roster: 30 * MIN,
+    athlete: 30 * MIN,
+    gamelog: 10 * MIN,
+  },
 };
 
 /** @param {{ maxBytes?: number, maxAgeMs?: Record<string, number>, freshMs?: Record<string, number> }} [partial] */
@@ -258,6 +285,7 @@ const DATE_KEYS = new Set([
   "gameweeksAt",
   "formAt",
   "leadersAt",
+  "minutesAt",
 ]);
 const revive = (/** @type {string} */ k, /** @type {unknown} */ v) =>
   DATE_KEYS.has(k) && typeof v === "string" ? new Date(v) : v;
@@ -292,7 +320,10 @@ const CACHE_CHECKS = {
   league: (/** @type {any} */ d) => {
     try {
       return isObj(d)
-        ? parseLeague({ ...d, asOf: { gameweeks: d.gameweeksAt, form: d.formAt, leaders: d.leadersAt } })
+        ? parseLeague({
+            ...d,
+            asOf: { gameweeks: d.gameweeksAt, form: d.formAt, leaders: d.leadersAt, minutes: d.minutesAt },
+          })
         : null;
     } catch {
       return null;

@@ -49,7 +49,7 @@ export function configureNet(partial = {}) {
 /** Data category from the URL, which selects the TTL. @param {string} [url] */
 export function categoryOf(url = "") {
   if (/\/schedule|\/summary|\/scoreboard/.test(url)) return "live";
-  if (/\/roster/.test(url)) return "roster";
+  if (/\/roster|\/athletes\//.test(url)) return "roster";
   if (/\/standings/.test(url)) return "standings";
   if (/\/news|data\/(news|meta)\.json/i.test(url)) return "news";
   return "default";
