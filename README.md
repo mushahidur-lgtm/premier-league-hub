@@ -117,6 +117,13 @@ fewer than 100 stories) the pipeline writes nothing and exits non-zero, so the `
 site that is live. Both files are checked by `scripts/lib/validate-data.mjs` (structure, known clubs and outlets,
 no addresses or credential-like text) before they are written. Both are generated in CI and git-ignored.
 
+## Compression
+
+GitLab Pages doesn't compress responses itself; it sends a precompressed copy when one sits beside the file. The
+`pages` job runs `scripts/precompress.mjs` after the build, writing a gzip (`.gz`) and a Brotli (`.br`) copy of
+every text file over 1 KB (HTML, JS, CSS, JSON, SVG); fonts and images are already compressed. On 2026-11-20 that
+took the site's text from 907 KB to 178 KB with Brotli (main script 258 KB → about 75 KB).
+
 ## CI minutes budget
 
 GitLab Free gives 400 compute minutes a month. The target is under 300, leaving headroom. Playwright never runs in CI.

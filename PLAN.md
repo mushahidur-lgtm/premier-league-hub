@@ -627,7 +627,9 @@ Phase 9 outcome: done. **Found in the live check (not fixed; affects the whole s
 compressed: `index-*.js` arrives as 258 KB (85 KB gzipped), `news.json` 300 KB, `stats.json` 161 KB. Pages serves a
 precompressed copy only when a `.gz` file exists beside the original. Fix: in the `pages` job, after `mv dist
 public`, write `<file>.gz` for every .html/.js/.css/.json/.svg (`gzip -9 -c f > f.gz`; busybox gzip is in
-node:22-alpine). That changes the deploy job, so it waits for the owner's go-ahead.
+node:22-alpine). That changes the deploy job, so it waits for the owner's go-ahead. **Done after the go-ahead:**
+`scripts/precompress.mjs` (Node zlib, gzip and Brotli, text files over 1 KB) runs in the `pages` job; unit test checks
+each copy decompresses to the original. Locally: 907 KB of text → 214 KB gzip, 178 KB Brotli.
 
 Next recommended: **Phase 10 (Fantasy Premier League)**: FPL is already fetched by the pipeline (bootstrap-static
 has prices, ownership, form, points, xG/xA; fixtures have difficulty). Check `element-summary` (per-player

@@ -39,6 +39,8 @@ pages:
     - npm run build
     - rm -rf public
     - mv dist public
+    # Pages only sends a compressed file if a .gz/.br copy sits beside it; write them (text files only).
+    - node scripts/precompress.mjs public
   artifacts:
     paths:
       - public
