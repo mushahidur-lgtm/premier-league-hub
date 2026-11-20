@@ -21,6 +21,8 @@ export function titleFor(route, ctx = {}) {
       return ctx.compareNames?.length === 2
         ? `${ctx.compareNames[0]} v ${ctx.compareNames[1]} · Compare players · ${SITE_NAME}`
         : `Compare players · ${SITE_NAME}`;
+    case "stats":
+      return `Statistics · ${SITE_NAME}`;
     case "search":
       return route.query ? `Search: ${route.query} · ${SITE_NAME}` : `Search · ${SITE_NAME}`;
     default:

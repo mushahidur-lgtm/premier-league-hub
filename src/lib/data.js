@@ -23,6 +23,7 @@ import { parseRoster, parseSchedules, parseStandings, parseSummary } from "./par
 import { parseNewsFile } from "./news.js";
 import { parseLeague } from "./league.js";
 import { parseAthlete, parseGamelog } from "./player.js";
+import { parseAthleteSeason, parseStats } from "./stats.js";
 import { persistentStats } from "./diagnostics.js";
 import { isObj } from "./validate.js";
 import { OUTLETS } from "./sources.js";
@@ -31,6 +32,7 @@ import { bumpRefreshEpoch, useRefreshEpoch } from "./refresh.js";
 export { FetchError, clearMemo, fetchJSON };
 
 const ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer";
+const ESPN_CORE = "https://sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/seasons";
 const ESPN_ATHLETES = "https://site.web.api.espn.com/apis/common/v3/sports/soccer/eng.1/athletes";
 
 export const URLS = {
@@ -46,6 +48,9 @@ export const URLS = {
   scoreboard: (/** @type {string | undefined} */ dates) => `${ESPN}/eng.1/scoreboard${dates ? `?dates=${dates}` : ""}`,
   /** A player's bio (CORS OK; this host, not the plain site API). */
   athlete: (/** @type {string} */ id) => `${ESPN_ATHLETES}/${id}`,
+  /** A player's season totals from ESPN's core API (any season; CORS OK). */
+  athleteSeason: (/** @type {string} */ id, /** @type {string} */ year) =>
+    `${ESPN_CORE}/${year}/types/1/athletes/${id}/statistics`,
   /** A player's league matches this season, with per-match stats. */
   gamelog: (/** @type {string} */ id) => `${ESPN_ATHLETES}/${id}/gamelog`,
   summary: (/** @type {string} */ eventId, league = "all") => `${ESPN}/${league || "all"}/summary?event=${eventId}`,
@@ -64,6 +69,11 @@ export const SOURCES = {
   scoreboards: { name: "ESPN", detail: "live scores for this gameweek" },
   athlete: { name: "ESPN", detail: "player profile" },
   gamelog: { name: "ESPN", detail: "player's match log" },
+  athleteSeason: { name: "ESPN", detail: "player's season statistics" },
+  stats: {
+    name: "ESPN and Fantasy Premier League",
+    detail: "season statistics, collected by this site's data pipeline",
+  },
   league: {
     name: "Fantasy Premier League and ESPN",
     detail: "gameweeks, form and leaders, collected by this site's data pipeline",
@@ -81,7 +91,7 @@ export const SOURCES = {
  * news: the pipeline runs every 4 hours, so a news.json older than ~2 missed runs means it has stopped.
  * @type {Record<string, number>}
  */
-export const STALE_AFTER_MS = { news: 10 * 3600e3, league: 10 * 3600e3 };
+export const STALE_AFTER_MS = { news: 10 * 3600e3, league: 10 * 3600e3, stats: 10 * 3600e3 };
 
 /**
  * When the data itself was produced: the pipeline's `generatedAt` for news, otherwise the fetch time.
@@ -93,7 +103,7 @@ export const STALE_AFTER_MS = { news: 10 * 3600e3, league: 10 * 3600e3 };
 export function asOfOf(key, data, savedAt) {
   const kind = kindOf(key);
   if (
-    (kind === "news" || kind === "league") &&
+    (kind === "news" || kind === "league" || kind === "stats") &&
     data?.generatedAt instanceof Date &&
     !Number.isNaN(data.generatedAt.getTime())
   ) {
@@ -144,6 +154,24 @@ export const LOADERS = {
   athlete: async (id) => ({ data: parseAthlete(await fetchJSON(URLS.athlete(id))) }),
   /** @param {string} id @returns {Promise<LoadResult>} */
   gamelog: async (id) => ({ data: parseGamelog(await fetchJSON(URLS.gamelog(id))) }),
+  /** @param {string} id @param {string} year @returns {Promise<LoadResult>} */
+  athleteSeason: async (id, year) => {
+    try {
+      return { data: parseAthleteSeason(await fetchJSON(URLS.athleteSeason(id, year))) };
+    } catch (err) {
+      // ESPN answers 404 for a season the player has no Premier League record in: that is "none", not an error.
+      if (/** @type {any} */ (err)?.status === 404) return { data: null };
+      throw err;
+    }
+  },
+  /** Season team and player statistics from the data pipeline. @returns {Promise<LoadResult>} */
+  stats: async () => {
+    const data = parseStats(await fetchJSON(dataUrl("stats.json")));
+    const warnings = [];
+    if (data.carriedOver.length) warnings.push(`Not refreshed at the last update: ${data.carriedOver.join(", ")}`);
+    if (data.missing.length) warnings.push(`Unavailable: ${data.missing.join(", ")}`);
+    return { data, warnings };
+  },
   /** Gameweeks, fixtures, form and leaders from the data pipeline. @returns {Promise<LoadResult>} */
   league: async () => {
     const data = parseLeague(await fetchJSON(dataUrl("league.json")));
@@ -193,7 +221,10 @@ export function loaderFor(key) {
     case "standings":
     case "news":
     case "league":
+    case "stats":
       return id ? null : LOADERS[kind];
+    case "athleteSeason":
+      return id && extra && DIGITS.test(id) && DIGITS.test(extra) ? () => LOADERS.athleteSeason(id, extra) : null;
     case "scoreboards": {
       const days = (id ?? "").split(",").filter((d) => /^\d{8}$/.test(d));
       return days.length ? () => LOADERS.scoreboards(days) : null;
@@ -251,6 +282,8 @@ export const cacheConfig = {
     schedule: 3 * DAY,
     roster: 7 * DAY, // squads change slowly
     athlete: 7 * DAY,
+    stats: 2 * DAY,
+    athleteSeason: 7 * DAY,
     gamelog: 3 * DAY,
     summary: 14 * DAY, // a finished match's summary doesn't change
   },
@@ -261,6 +294,8 @@ export const cacheConfig = {
     league: 15 * MIN,
     roster: 30 * MIN,
     athlete: 30 * MIN,
+    stats: 15 * MIN,
+    athleteSeason: 60 * MIN,
     gamelog: 10 * MIN,
   },
 };
@@ -289,6 +324,8 @@ const DATE_KEYS = new Set([
   "formAt",
   "leadersAt",
   "minutesAt",
+  "asOf",
+  "playersAt",
 ]);
 const revive = (/** @type {string} */ k, /** @type {unknown} */ v) =>
   DATE_KEYS.has(k) && typeof v === "string" ? new Date(v) : v;
