@@ -483,6 +483,9 @@ a day so far).
 - [x] Comparison tool `#/compare?a=&b=`: two players, same season and competition, unavailable distinct from zero
 - [x] Linked from squad lists, leaders and player search; e2e and unit tests
 - [ ] Deploy and live check (below)
+- [x] Found in the live check: a browser that had saved league.json 11 minutes before the deploy kept showing
+      minutes as "–" (its copy was inside the 15-minute fresh window, so no request). `CACHE_VERSION` 2 → 3; CLAUDE.md
+      now says to bump it whenever a pipeline file gains a field the UI reads.
 
 Phase 8 decisions:
 

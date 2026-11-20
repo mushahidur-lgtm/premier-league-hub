@@ -70,7 +70,8 @@ Before every commit: `npm run lint && npm run typecheck && npm test && npm run b
 
 - Browser, live: ESPN `site.api.espn.com` schedule, standings, roster, match summary, scoreboard (one day per
   request, `?dates=YYYYMMDD`) (CORS OK). Keep Arsenal Hub's shared in-flight requests, short memo and last-good-copy
-  cache (versioned `plh-cache-vN`; bump `CACHE_VERSION` in `src/lib/data.js` when a parser's output shape changes).
+  cache (versioned `plh-cache-vN`; bump `CACHE_VERSION` in `src/lib/data.js` when a parser's output shape changes
+  or a pipeline file gains a field the UI reads, or visitors keep the old shape for a fresh window).
 - Pipeline: `scripts/fetch-data.mjs`, Node 22, **no npm dependencies**. Fetches feeds, de-duplicates, tags clubs and
   players, writes `public/data/news.json` + `public/data/meta.json` (generated time, per-feed status) +
   `public/data/league.json` (FPL gameweeks and fixtures, league form, ESPN goals/assists leaders). Everything is

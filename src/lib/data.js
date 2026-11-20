@@ -219,8 +219,11 @@ export function loaderFor(key) {
  * Version of what is saved. Bump it by hand when a parser's output shape changes, so copies saved by older
  * code are dropped instead of reaching new components. (Not a build hash: that would wipe every visitor's
  * last good copy on each deploy.) Older `plh-cache-v*` keys are removed on the next write.
+ * Also bump it when a pipeline file gains a field the UI reads: a copy inside its fresh window is used without a
+ * request, so without a bump visitors would see the old shape for up to that window.
+ *   3: league.json gained `minutes` (Phase 8).
  */
-export const CACHE_VERSION = 2;
+export const CACHE_VERSION = 3;
 export const CACHE_KEY = `plh-cache-v${CACHE_VERSION}`;
 const ANY_CACHE_VERSION = /^plh-cache-v\d+$/;
 
